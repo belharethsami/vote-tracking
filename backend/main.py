@@ -74,19 +74,19 @@ async def process_pdf(
                         {
                             "role": "user",
                             "content": [
-                                { "type": "input_text", "text": "what is in this image?" },
+                                { "type": "input_text", "text": "what's in this image?" },
                                 {
                                     "type": "input_image",
-                                    "image_url": image_base64
-                                }
-                            ]
+                                    "image_url": image_base64,
+                                },
+                            ],
                         }
-                    ]
+                    ],
                 )
                 
                 results.append({
                     "page": i + 1,
-                    "response": response.model_dump() if hasattr(response, 'model_dump') else str(response)
+                    "response": response.output_text
                 })
                 
             except Exception as e:
