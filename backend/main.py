@@ -72,9 +72,17 @@ async def process_pdf(
                     model="gpt-4.1",
                     input=[
                         {
+                            "role": "system",
+                            "content": [
+                                {
+                                    "type": "input_text",
+                                    "text": "Output all of the text you see in the image"
+                                }
+                            ]
+                        },
+                        {
                             "role": "user",
                             "content": [
-                                { "type": "input_text", "text": "what's in this image?" },
                                 {
                                     "type": "input_image",
                                     "image_url": image_base64,
@@ -82,6 +90,33 @@ async def process_pdf(
                             ],
                         }
                     ],
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "page_to_text",
+                            "strict": True,
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "text": {
+                                        "type": "string",
+                                        "description": "Write down all of the text you see in the image.",
+                                        "minLength": 1
+                                    }
+                                },
+                                "required": [
+                                    "text"
+                                ],
+                                "additionalProperties": False
+                            }
+                        }
+                    },
+                    reasoning={},
+                    tools=[],
+                    temperature=1,
+                    max_output_tokens=2048,
+                    top_p=1,
+                    store=True
                 )
                 
                 results.append({
