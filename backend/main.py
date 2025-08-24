@@ -1,6 +1,6 @@
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 import os
 import tempfile
@@ -9,8 +9,10 @@ from io import BytesIO
 from PIL import Image
 from pdf2image import convert_from_path
 from openai import OpenAI
-from typing import List
+from typing import List, Callable, Optional
 import json
+import asyncio
+import aiofiles
 
 app = FastAPI(title="Vote Tracking API")
 
@@ -40,6 +42,152 @@ def image_to_base64(image: Image.Image) -> str:
     image.save(buffered, format="PNG")
     img_str = base64.b64encode(buffered.getvalue()).decode()
     return f"data:image/png;base64,{img_str}"
+
+async def process_single_page(client: OpenAI, image: Image.Image, page_num: int, semaphore: asyncio.Semaphore, filename: str = "", progress_callback: Optional[Callable] = None) -> dict:
+    """Process a single page with rate limiting"""
+    async with semaphore:
+        try:
+            # Convert image to base64
+            image_base64 = image_to_base64(image)
+            
+            # Call OpenAI API
+            response = client.responses.create(
+                model="gpt-4.1",
+                input=[
+                    {
+                        "role": "system",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": "Output all of the text you see in the image"
+                            }
+                        ]
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_image",
+                                "image_url": image_base64,
+                            },
+                        ],
+                    }
+                ],
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "page_to_text",
+                        "strict": True,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "text": {
+                                    "type": "string",
+                                    "description": "Write down all of the text you see in the image.",
+                                    "minLength": 1
+                                }
+                            },
+                            "required": [
+                                "text"
+                            ],
+                            "additionalProperties": False
+                        }
+                    }
+                },
+                reasoning={},
+                tools=[],
+                temperature=1,
+                max_output_tokens=2048,
+                top_p=1,
+                store=True
+            )
+            
+            result = {
+                "page": page_num,
+                "response": response.output_text
+            }
+            
+            if progress_callback:
+                await progress_callback("page_completed", {
+                    "filename": filename,
+                    "page": page_num,
+                    "success": True,
+                    "result": result
+                })
+            
+            return result
+            
+        except Exception as e:
+            result = {
+                "page": page_num,
+                "error": f"Failed to process page {page_num}: {str(e)}"
+            }
+            
+            if progress_callback:
+                await progress_callback("page_completed", {
+                    "filename": filename,
+                    "page": page_num,
+                    "success": False,
+                    "result": result
+                })
+            
+            return result
+
+async def process_single_pdf(file_content: bytes, filename: str, client: OpenAI, semaphore: asyncio.Semaphore, progress_callback: Optional[Callable] = None) -> dict:
+    """Process a single PDF file and return results for all its pages"""
+    temp_pdf_path = None
+    try:
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+            temp_file.write(file_content)
+            temp_pdf_path = temp_file.name
+        
+        # Convert PDF pages to images
+        try:
+            images = convert_from_path(temp_pdf_path)
+        except Exception as e:
+            raise Exception(f"Failed to convert PDF {filename}: {str(e)}")
+        
+        if progress_callback:
+            await progress_callback("pdf_started", {
+                "filename": filename,
+                "total_pages": len(images)
+            })
+        
+        # Process all pages in parallel
+        page_tasks = [
+            process_single_page(client, image, i + 1, semaphore, filename, progress_callback)
+            for i, image in enumerate(images)
+        ]
+        
+        page_results = await asyncio.gather(*page_tasks)
+        
+        result = {
+            "filename": filename,
+            "success": True,
+            "total_pages": len(images),
+            "results": page_results
+        }
+        
+        if progress_callback:
+            await progress_callback("pdf_completed", result)
+        
+        return result
+        
+    except Exception as e:
+        return {
+            "filename": filename,
+            "success": False,
+            "error": str(e),
+            "results": []
+        }
+    finally:
+        # Clean up temporary file
+        if temp_pdf_path and os.path.exists(temp_pdf_path):
+            try:
+                os.unlink(temp_pdf_path)
+            except:
+                pass
 
 @app.post("/process-pdf")
 async def process_pdf(
@@ -160,6 +308,211 @@ async def process_pdf(
                 pass
         
         raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+@app.post("/process-multiple-pdfs")
+async def process_multiple_pdfs(
+    files: List[UploadFile] = File(...),
+    api_key: str = Form(...)
+):
+    """Process multiple PDF files in parallel"""
+    
+    if not files:
+        raise HTTPException(status_code=400, detail="At least one PDF file is required")
+    
+    for file in files:
+        if not file.filename.endswith('.pdf'):
+            raise HTTPException(status_code=400, detail=f"File {file.filename} must be a PDF")
+    
+    if not api_key:
+        raise HTTPException(status_code=400, detail="OpenAI API key is required")
+    
+    try:
+        # Initialize OpenAI client
+        client = OpenAI(api_key=api_key)
+        
+        # Create semaphore to limit concurrent API calls (10 concurrent requests max)
+        semaphore = asyncio.Semaphore(10)
+        
+        # Read all files asynchronously
+        file_contents = []
+        for file in files:
+            content = await file.read()
+            file_contents.append((content, file.filename))
+        
+        # Process all PDFs in parallel
+        pdf_tasks = [
+            process_single_pdf(content, filename, client, semaphore)
+            for content, filename in file_contents
+        ]
+        
+        pdf_results = await asyncio.gather(*pdf_tasks)
+        
+        # Concatenate all successful results
+        all_pages = []
+        total_pages_processed = 0
+        failed_files = []
+        
+        for pdf_result in pdf_results:
+            if pdf_result["success"]:
+                # Add filename context to each page result
+                for page_result in pdf_result["results"]:
+                    page_result["source_file"] = pdf_result["filename"]
+                    all_pages.append(page_result)
+                total_pages_processed += pdf_result["total_pages"]
+            else:
+                failed_files.append({
+                    "filename": pdf_result["filename"],
+                    "error": pdf_result["error"]
+                })
+        
+        # Concatenate all extracted text
+        concatenated_text = ""
+        for page in all_pages:
+            if "response" in page and not page.get("error"):
+                try:
+                    parsed = json.loads(page["response"])
+                    text = parsed.get("text", page["response"])
+                    concatenated_text += f"\n\n--- {page['source_file']} - Page {page['page']} ---\n{text}"
+                except:
+                    concatenated_text += f"\n\n--- {page['source_file']} - Page {page['page']} ---\n{page['response']}"
+        
+        return JSONResponse(content={
+            "success": True,
+            "total_files": len(files),
+            "total_pages_processed": total_pages_processed,
+            "failed_files": failed_files,
+            "pdf_results": pdf_results,
+            "concatenated_text": concatenated_text.strip()
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
+
+@app.post("/process-multiple-pdfs-stream")
+async def process_multiple_pdfs_stream(
+    files: List[UploadFile] = File(...),
+    api_key: str = Form(...)
+):
+    """Process multiple PDF files in parallel with real-time progress updates via SSE"""
+    
+    if not files:
+        raise HTTPException(status_code=400, detail="At least one PDF file is required")
+    
+    for file in files:
+        if not file.filename.endswith('.pdf'):
+            raise HTTPException(status_code=400, detail=f"File {file.filename} must be a PDF")
+    
+    if not api_key:
+        raise HTTPException(status_code=400, detail="OpenAI API key is required")
+
+    async def generate_progress():
+        try:
+            # Initialize OpenAI client
+            client = OpenAI(api_key=api_key)
+            
+            # Create semaphore to limit concurrent API calls
+            semaphore = asyncio.Semaphore(10)
+            
+            # Progress tracking
+            progress_data = {
+                "total_files": len(files),
+                "files_started": 0,
+                "files_completed": 0,
+                "total_pages": 0,
+                "pages_completed": 0,
+                "pdf_results": [],
+                "failed_files": []
+            }
+            
+            async def progress_callback(event_type: str, data: dict):
+                if event_type == "pdf_started":
+                    progress_data["files_started"] += 1
+                    progress_data["total_pages"] += data["total_pages"]
+                    
+                elif event_type == "page_completed":
+                    progress_data["pages_completed"] += 1
+                    
+                elif event_type == "pdf_completed":
+                    progress_data["files_completed"] += 1
+                    if data["success"]:
+                        progress_data["pdf_results"].append(data)
+                    else:
+                        progress_data["failed_files"].append({
+                            "filename": data["filename"],
+                            "error": data.get("error", "Unknown error")
+                        })
+                
+                # Emit progress event
+                event_data = {
+                    "event_type": event_type,
+                    "data": data,
+                    "progress": progress_data.copy()
+                }
+                
+                yield f"data: {json.dumps(event_data)}\n\n"
+            
+            # Read all files
+            file_contents = []
+            for file in files:
+                content = await file.read()
+                file_contents.append((content, file.filename))
+            
+            # Process all PDFs in parallel
+            pdf_tasks = [
+                process_single_pdf(content, filename, client, semaphore, progress_callback)
+                for content, filename in file_contents
+            ]
+            
+            pdf_results = await asyncio.gather(*pdf_tasks)
+            
+            # Concatenate all successful results
+            all_pages = []
+            concatenated_text = ""
+            
+            for pdf_result in pdf_results:
+                if pdf_result["success"]:
+                    for page_result in pdf_result["results"]:
+                        page_result["source_file"] = pdf_result["filename"]
+                        all_pages.append(page_result)
+            
+            # Build concatenated text
+            for page in all_pages:
+                if "response" in page and not page.get("error"):
+                    try:
+                        parsed = json.loads(page["response"])
+                        text = parsed.get("text", page["response"])
+                        concatenated_text += f"\n\n--- {page['source_file']} - Page {page['page']} ---\n{text}"
+                    except:
+                        concatenated_text += f"\n\n--- {page['source_file']} - Page {page['page']} ---\n{page['response']}"
+            
+            # Final completion event
+            final_result = {
+                "success": True,
+                "total_files": len(files),
+                "total_pages_processed": progress_data["pages_completed"],
+                "failed_files": progress_data["failed_files"],
+                "pdf_results": progress_data["pdf_results"],
+                "concatenated_text": concatenated_text.strip()
+            }
+            
+            yield f"data: {json.dumps({'event_type': 'all_completed', 'data': final_result})}\n\n"
+            
+        except Exception as e:
+            error_data = {
+                "event_type": "error",
+                "data": {"error": str(e)}
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+    
+    return StreamingResponse(
+        generate_progress(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Content-Type": "text/event-stream",
+        }
+    )
 
 @app.post("/extract-attendees")
 async def extract_attendees(request: TextAnalysisRequest):

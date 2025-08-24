@@ -5,7 +5,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode } fr
 export interface AppState {
   apiKey: string
   step1Data: {
-    pdfFile: File | null
+    pdfFiles: File[]
     ocrResults: string
   }
   step2Data: {
@@ -34,7 +34,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined)
 const initialState: AppState = {
   apiKey: '',
   step1Data: {
-    pdfFile: null,
+    pdfFiles: [],
     ocrResults: ''
   },
   step2Data: {
