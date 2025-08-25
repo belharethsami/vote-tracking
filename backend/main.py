@@ -11,6 +11,7 @@ from pdf2image import convert_from_path
 from openai import OpenAI
 from typing import List
 import json
+import asyncio
 
 app = FastAPI(title="Vote Tracking API")
 
@@ -41,46 +42,20 @@ def image_to_base64(image: Image.Image) -> str:
     img_str = base64.b64encode(buffered.getvalue()).decode()
     return f"data:image/png;base64,{img_str}"
 
-@app.post("/process-pdf")
-async def process_pdf(
-    file: UploadFile = File(...),
-    api_key: str = Form(...)
-):
-    """Process PDF file with OpenAI vision model"""
-    
-    if not file.filename.endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="File must be a PDF")
-    
-    if not api_key:
-        raise HTTPException(status_code=400, detail="OpenAI API key is required")
-    
-    try:
-        # Initialize OpenAI client with provided API key
-        client = OpenAI(api_key=api_key)
-        
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
-            content = await file.read()
-            temp_file.write(content)
-            temp_pdf_path = temp_file.name
-        
-        # Convert PDF pages to images
+async def process_page_async(client: OpenAI, image: Image.Image, page_num: int, semaphore: asyncio.Semaphore) -> dict:
+    """Process a single page asynchronously with semaphore for concurrency control"""
+    async with semaphore:
         try:
-            images = convert_from_path(temp_pdf_path)
-        except Exception as e:
-            os.unlink(temp_pdf_path)
-            raise HTTPException(status_code=500, detail=f"Failed to convert PDF: {str(e)}")
-        
-        # Process each page with OpenAI
-        results = []
-        
-        for i, image in enumerate(images):
-            try:
-                # Convert image to base64
-                image_base64 = image_to_base64(image)
-                
-                # Call OpenAI API with the exact format requested
-                response = client.responses.create(
+            # Convert image to base64
+            image_base64 = image_to_base64(image)
+            
+            print(f"Making LLM request for page {page_num + 1}")
+            
+            # Call OpenAI API in a thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: client.responses.create(
                     model="gpt-4.1",
                     input=[
                         {
@@ -130,17 +105,65 @@ async def process_pdf(
                     top_p=1,
                     store=True
                 )
-                
-                results.append({
-                    "page": i + 1,
-                    "response": response.output_text
-                })
-                
-            except Exception as e:
-                results.append({
-                    "page": i + 1,
-                    "error": f"Failed to process page {i + 1}: {str(e)}"
-                })
+            )
+            
+            print(f"Completed LLM request for page {page_num + 1}")
+            
+            return {
+                "page": page_num + 1,
+                "response": response.output_text
+            }
+            
+        except Exception as e:
+            print(f"Failed LLM request for page {page_num + 1}: {str(e)}")
+            return {
+                "page": page_num + 1,
+                "error": f"Failed to process page {page_num + 1}: {str(e)}"
+            }
+
+@app.post("/process-pdf")
+async def process_pdf(
+    file: UploadFile = File(...),
+    api_key: str = Form(...)
+):
+    """Process PDF file with OpenAI vision model"""
+    
+    if not file.filename.endswith('.pdf'):
+        raise HTTPException(status_code=400, detail="File must be a PDF")
+    
+    if not api_key:
+        raise HTTPException(status_code=400, detail="OpenAI API key is required")
+    
+    try:
+        # Initialize OpenAI client with provided API key
+        client = OpenAI(api_key=api_key)
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+            content = await file.read()
+            temp_file.write(content)
+            temp_pdf_path = temp_file.name
+        
+        # Convert PDF pages to images
+        try:
+            images = convert_from_path(temp_pdf_path)
+        except Exception as e:
+            os.unlink(temp_pdf_path)
+            raise HTTPException(status_code=500, detail=f"Failed to convert PDF: {str(e)}")
+        
+        # Process all pages in parallel with max 20 concurrent requests
+        print(f"Starting parallel processing of {len(images)} pages with max 20 concurrent requests")
+        
+        semaphore = asyncio.Semaphore(20)
+        tasks = [
+            process_page_async(client, image, i, semaphore)
+            for i, image in enumerate(images)
+        ]
+        
+        # Execute all tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=False)
+        
+        print(f"Completed processing all {len(images)} pages")
         
         # Clean up temporary file
         os.unlink(temp_pdf_path)
