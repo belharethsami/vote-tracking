@@ -2,7 +2,7 @@
 
 import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
 
-export interface MultiPdfResult {
+export interface PdfResult {
   filename: string
   success: boolean
   totalPages?: number
@@ -25,25 +25,12 @@ export interface MultiPdfResult {
 
 export interface AppState {
   apiKey: string
-  step1Data: {
-    pdfFile: File | null
-    ocrResults: string
-  }
-  step2Data: {
-    inputText: string
-    attendeeResults: any
-  }
-  step3Data: {
-    inputText: string
-    voteResults: any
-  }
-  multiPdfData: {
-    files: File[]
-    results: MultiPdfResult[]
-    processingStatus: 'idle' | 'processing' | 'complete' | 'error'
-    processingTimeMs?: number
-  }
+  files: File[]
+  results: PdfResult[]
   currentStep: number
+  step1Status: 'idle' | 'processing' | 'complete' | 'error'
+  step2Status: 'idle' | 'processing' | 'complete' | 'error'  
+  step3Status: 'idle' | 'processing' | 'complete' | 'error'
 }
 
 interface AppContextType {
@@ -51,38 +38,23 @@ interface AppContextType {
   updateState: (updates: Partial<AppState>) => void
   setCurrentStep: (step: number) => void
   setApiKey: (key: string) => void
-  setStep1Data: (data: Partial<AppState['step1Data']>) => void
-  setStep2Data: (data: Partial<AppState['step2Data']>) => void
-  setStep3Data: (data: Partial<AppState['step3Data']>) => void
-  setMultiPdfFiles: (files: File[]) => void
-  setMultiPdfResults: (results: MultiPdfResult[]) => void
-  setMultiPdfStatus: (status: 'idle' | 'processing' | 'complete' | 'error') => void
-  setMultiPdfProcessingTime: (time: number) => void
-  clearMultiPdfData: () => void
+  setFiles: (files: File[]) => void
+  setResults: (results: PdfResult[]) => void
+  updateResults: (results: Partial<PdfResult>[]) => void
+  setStepStatus: (step: 1 | 2 | 3, status: 'idle' | 'processing' | 'complete' | 'error') => void
+  clearData: () => void
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined)
 
 const initialState: AppState = {
   apiKey: '',
-  step1Data: {
-    pdfFile: null,
-    ocrResults: ''
-  },
-  step2Data: {
-    inputText: '',
-    attendeeResults: null
-  },
-  step3Data: {
-    inputText: '',
-    voteResults: null
-  },
-  multiPdfData: {
-    files: [],
-    results: [],
-    processingStatus: 'idle'
-  },
-  currentStep: 1
+  files: [],
+  results: [],
+  currentStep: 1,
+  step1Status: 'idle',
+  step2Status: 'idle',
+  step3Status: 'idle'
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -103,63 +75,41 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, apiKey: key }))
   }, [])
 
-  const setStep1Data = useCallback((data: Partial<AppState['step1Data']>) => {
-    setState(prev => ({ 
-      ...prev, 
-      step1Data: { ...prev.step1Data, ...data }
-    }))
+  const setFiles = useCallback((files: File[]) => {
+    setState(prev => ({ ...prev, files }))
   }, [])
 
-  const setStep2Data = useCallback((data: Partial<AppState['step2Data']>) => {
-    setState(prev => ({ 
-      ...prev, 
-      step2Data: { ...prev.step2Data, ...data }
-    }))
+  const setResults = useCallback((results: PdfResult[]) => {
+    setState(prev => ({ ...prev, results }))
   }, [])
 
-  const setStep3Data = useCallback((data: Partial<AppState['step3Data']>) => {
-    setState(prev => ({ 
-      ...prev, 
-      step3Data: { ...prev.step3Data, ...data }
-    }))
+  const updateResults = useCallback((updates: Partial<PdfResult>[]) => {
+    setState(prev => {
+      const newResults = [...prev.results]
+      updates.forEach((update, index) => {
+        if (index < newResults.length) {
+          newResults[index] = { ...newResults[index], ...update }
+        }
+      })
+      return { ...prev, results: newResults }
+    })
   }, [])
 
-  const setMultiPdfFiles = useCallback((files: File[]) => {
+  const setStepStatus = useCallback((step: 1 | 2 | 3, status: 'idle' | 'processing' | 'complete' | 'error') => {
     setState(prev => ({
       ...prev,
-      multiPdfData: { ...prev.multiPdfData, files }
+      [`step${step}Status`]: status
     }))
   }, [])
 
-  const setMultiPdfResults = useCallback((results: MultiPdfResult[]) => {
+  const clearData = useCallback(() => {
     setState(prev => ({
       ...prev,
-      multiPdfData: { ...prev.multiPdfData, results }
-    }))
-  }, [])
-
-  const setMultiPdfStatus = useCallback((status: 'idle' | 'processing' | 'complete' | 'error') => {
-    setState(prev => ({
-      ...prev,
-      multiPdfData: { ...prev.multiPdfData, processingStatus: status }
-    }))
-  }, [])
-
-  const setMultiPdfProcessingTime = useCallback((time: number) => {
-    setState(prev => ({
-      ...prev,
-      multiPdfData: { ...prev.multiPdfData, processingTimeMs: time }
-    }))
-  }, [])
-
-  const clearMultiPdfData = useCallback(() => {
-    setState(prev => ({
-      ...prev,
-      multiPdfData: {
-        files: [],
-        results: [],
-        processingStatus: 'idle'
-      }
+      files: [],
+      results: [],
+      step1Status: 'idle',
+      step2Status: 'idle',
+      step3Status: 'idle'
     }))
   }, [])
 
@@ -168,14 +118,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
     updateState,
     setCurrentStep,
     setApiKey,
-    setStep1Data,
-    setStep2Data,
-    setStep3Data,
-    setMultiPdfFiles,
-    setMultiPdfResults,
-    setMultiPdfStatus,
-    setMultiPdfProcessingTime,
-    clearMultiPdfData
+    setFiles,
+    setResults,
+    updateResults,
+    setStepStatus,
+    clearData
   }
 
   return (

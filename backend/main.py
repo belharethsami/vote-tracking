@@ -36,6 +36,14 @@ class TextAnalysisRequest(BaseModel):
     text: str
     api_key: str
 
+class MultiTextEntry(BaseModel):
+    filename: str
+    text: str
+
+class MultiTextAnalysisRequest(BaseModel):
+    entries: List[MultiTextEntry]
+    api_key: str
+
 def image_to_base64(image: Image.Image) -> str:
     """Convert PIL Image to base64 string"""
     buffered = BytesIO()
@@ -297,13 +305,13 @@ async def extract_vote_patterns_async(client: OpenAI, text: str) -> dict:
     except Exception as e:
         raise e
 
-async def process_single_pdf_complete(
+async def process_single_pdf_ocr_only(
     client: OpenAI, 
     file_content: bytes, 
     filename: str,
     semaphore: asyncio.Semaphore
 ) -> dict:
-    """Process single PDF through all 3 steps in parallel"""
+    """Process single PDF OCR only (step 1)"""
     
     async with semaphore:
         start_time = time.time()
@@ -347,22 +355,12 @@ async def process_single_pdf_complete(
                     except:
                         extracted_text += str(result["response"]) + "\n\n"
             
-            print(f"OCR complete for {filename}, starting parallel attendee and vote extraction")
-            
-            # Steps 2 & 3: Run attendees and vote patterns in parallel
-            attendees_task = extract_attendees_async(client, extracted_text)
-            vote_patterns_task = extract_vote_patterns_async(client, extracted_text)
-            
-            attendees_result, vote_result = await asyncio.gather(
-                attendees_task, vote_patterns_task, return_exceptions=True
-            )
-            
             # Clean up temp file
             if temp_pdf_path:
                 os.unlink(temp_pdf_path)
             
             processing_time = int((time.time() - start_time) * 1000)
-            print(f"Completed processing {filename} in {processing_time}ms")
+            print(f"Completed OCR for {filename} in {processing_time}ms")
             
             return {
                 "filename": filename,
@@ -373,11 +371,7 @@ async def process_single_pdf_complete(
                     "results": ocr_results
                 },
                 "extracted_text": extracted_text.strip(),
-                "attendees": attendees_result if not isinstance(attendees_result, Exception) else None,
-                "vote_patterns": vote_result if not isinstance(vote_result, Exception) else None,
-                "processing_time_ms": processing_time,
-                "attendees_error": str(attendees_result) if isinstance(attendees_result, Exception) else None,
-                "vote_patterns_error": str(vote_result) if isinstance(vote_result, Exception) else None
+                "processing_time_ms": processing_time
             }
             
         except Exception as e:
@@ -395,270 +389,12 @@ async def process_single_pdf_complete(
                 "processing_time_ms": int((time.time() - start_time) * 1000)
             }
 
-@app.post("/process-pdf")
-async def process_pdf(
-    file: UploadFile = File(...),
-    api_key: str = Form(...)
-):
-    """Process PDF file with OpenAI vision model"""
-    
-    if not file.filename.endswith('.pdf'):
-        raise HTTPException(status_code=400, detail="File must be a PDF")
-    
-    if not api_key:
-        raise HTTPException(status_code=400, detail="OpenAI API key is required")
-    
-    try:
-        # Initialize OpenAI client with provided API key
-        client = OpenAI(api_key=api_key)
-        
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
-            content = await file.read()
-            temp_file.write(content)
-            temp_pdf_path = temp_file.name
-        
-        # Convert PDF pages to images
-        try:
-            images = convert_from_path(temp_pdf_path)
-        except Exception as e:
-            os.unlink(temp_pdf_path)
-            raise HTTPException(status_code=500, detail=f"Failed to convert PDF: {str(e)}")
-        
-        # Process all pages in parallel with max 20 concurrent requests
-        print(f"Starting parallel processing of {len(images)} pages with max 20 concurrent requests")
-        
-        semaphore = asyncio.Semaphore(20)
-        tasks = [
-            process_page_async(client, image, i, semaphore)
-            for i, image in enumerate(images)
-        ]
-        
-        # Execute all tasks in parallel
-        results = await asyncio.gather(*tasks, return_exceptions=False)
-        
-        print(f"Completed processing all {len(images)} pages")
-        
-        # Clean up temporary file
-        os.unlink(temp_pdf_path)
-        
-        return JSONResponse(content={
-            "success": True,
-            "total_pages": len(images),
-            "results": results
-        })
-        
-    except Exception as e:
-        # Clean up temporary file if it exists
-        if 'temp_pdf_path' in locals():
-            try:
-                os.unlink(temp_pdf_path)
-            except:
-                pass
-        
-        raise HTTPException(status_code=500, detail=f"Processing failed: {str(e)}")
-
-@app.post("/extract-attendees")
-async def extract_attendees(request: TextAnalysisRequest):
-    """Extract meeting attendees using OpenAI"""
-    
-    if not request.api_key:
-        raise HTTPException(status_code=400, detail="API key is required")
-    
-    if not request.text:
-        raise HTTPException(status_code=400, detail="Text is required")
-    
-    try:
-        # Initialize OpenAI client with provided API key
-        client = OpenAI(api_key=request.api_key)
-        
-        # Call OpenAI API with the exact format requested for attendees extraction
-        response = client.responses.create(
-            model="gpt-4.1",
-            input=[
-                {
-                    "role": "system",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": "Based on the text provided, return the names of all of the city council members who attended the meeting"
-                        }
-                    ]
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": request.text
-                        }
-                    ]
-                }
-            ],
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "council_meeting_attendance",
-                    "strict": True,
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "attending_members": {
-                                "type": "array",
-                                "description": "A list of city council members who attended the meeting, as found in the notes.",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "name": {
-                                            "type": "string",
-                                            "description": "Full name of the city council member."
-                                        }
-                                    },
-                                    "required": [
-                                        "name"
-                                    ],
-                                    "additionalProperties": False
-                                }
-                            }
-                        },
-                        "required": [
-                            "attending_members"
-                        ],
-                        "additionalProperties": False
-                    }
-                }
-            },
-            reasoning={},
-            tools=[],
-            temperature=1,
-            max_output_tokens=2048,
-            top_p=1,
-            store=True
-        )
-        
-        return JSONResponse(content=response.output_text)
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")
-
-@app.post("/extract-vote-patterns")
-async def extract_vote_patterns(request: TextAnalysisRequest):
-    """Extract vote patterns using OpenAI"""
-    
-    if not request.api_key:
-        raise HTTPException(status_code=400, detail="API key is required")
-    
-    if not request.text:
-        raise HTTPException(status_code=400, detail="Text is required")
-    
-    try:
-        # Initialize OpenAI client with provided API key
-        client = OpenAI(api_key=request.api_key)
-        
-        # Call OpenAI API with the exact format requested for vote patterns extraction
-        response = client.responses.create(
-            model="o3",
-            input=[
-                {
-                    "role": "developer",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": "Given the text and the list of city council members, output whether they sponsored, co-sponsored, voted for, or voted against the bill "
-                        }
-                    ]
-                },
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "input_text",
-                            "text": request.text
-                        }
-                    ]
-                }
-            ],
-            text={
-                "format": {
-                    "type": "json_schema",
-                    "name": "city_council_bill_unique_action",
-                    "strict": True,
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "bills": {
-                                "type": "array",
-                                "description": "List of bills discussed in the text.",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "bill_name": {
-                                            "type": "string",
-                                            "description": "Name or identifier of the bill."
-                                        },
-                                        "council_members": {
-                                            "type": "array",
-                                            "description": "List of all city council members and their mutually exclusive action on this bill.",
-                                            "items": {
-                                                "type": "object",
-                                                "properties": {
-                                                    "member_name": {
-                                                        "type": "string",
-                                                        "description": "Full name of the city council member."
-                                                    },
-                                                    "action": {
-                                                        "type": "string",
-                                                        "description": "The mutually exclusive action taken by the member on this bill.",
-                                                        "enum": [
-                                                            "sponsored",
-                                                            "co_sponsored",
-                                                            "voted_for",
-                                                            "voted_against",
-                                                            "abstained"
-                                                        ]
-                                                    }
-                                                },
-                                                "required": [
-                                                    "member_name",
-                                                    "action"
-                                                ],
-                                                "additionalProperties": False
-                                            }
-                                        }
-                                    },
-                                    "required": [
-                                        "bill_name",
-                                        "council_members"
-                                    ],
-                                    "additionalProperties": False
-                                }
-                            }
-                        },
-                        "required": [
-                            "bills"
-                        ],
-                        "additionalProperties": False
-                    }
-                }
-            },
-            reasoning={
-                "effort": "medium"
-            },
-            tools=[],
-            store=True
-        )
-        
-        return JSONResponse(content=response.output_text)
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Extraction failed: {str(e)}")
-
-@app.post("/process-multiple-pdfs")
-async def process_multiple_pdfs(
+@app.post("/process-pdfs")
+async def process_pdfs(
     files: List[UploadFile] = File(...),
     api_key: str = Form(...)
 ):
-    """Process multiple PDF files in parallel through all steps"""
+    """Process one or multiple PDF files OCR (step 1)"""
     
     if not api_key:
         raise HTTPException(status_code=400, detail="OpenAI API key is required")
@@ -677,7 +413,7 @@ async def process_multiple_pdfs(
         
         start_time = time.time()
         
-        print(f"Starting parallel processing of {len(files)} PDF files")
+        print(f"Starting OCR processing of {len(files)} PDF file(s)")
         
         # Read all file contents first
         file_contents = []
@@ -688,7 +424,7 @@ async def process_multiple_pdfs(
         # Process all PDFs in parallel with max 5 concurrent files to avoid API rate limits
         semaphore = asyncio.Semaphore(5)
         tasks = [
-            process_single_pdf_complete(client, content, filename, semaphore)
+            process_single_pdf_ocr_only(client, content, filename, semaphore)
             for content, filename in file_contents
         ]
         
@@ -710,7 +446,7 @@ async def process_multiple_pdfs(
         
         total_processing_time = int((time.time() - start_time) * 1000)
         
-        print(f"Completed processing all {len(files)} files in {total_processing_time}ms")
+        print(f"Completed OCR processing all {len(files)} file(s) in {total_processing_time}ms")
         
         return JSONResponse(content={
             "success": True,
@@ -720,7 +456,121 @@ async def process_multiple_pdfs(
         })
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Multi-PDF processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"PDF processing failed: {str(e)}")
+
+@app.post("/extract-attendees-batch")
+async def extract_attendees_batch(request: MultiTextAnalysisRequest):
+    """Extract meeting attendees for one or multiple text entries"""
+    
+    if not request.api_key:
+        raise HTTPException(status_code=400, detail="API key is required")
+    
+    if not request.entries:
+        raise HTTPException(status_code=400, detail="At least one text entry is required")
+    
+    try:
+        # Initialize OpenAI client with provided API key
+        client = OpenAI(api_key=request.api_key)
+        
+        start_time = time.time()
+        
+        print(f"Starting attendee extraction for {len(request.entries)} text entries")
+        
+        # Process all entries in parallel
+        tasks = [
+            extract_attendees_async(client, entry.text)
+            for entry in request.entries
+        ]
+        
+        # Execute all tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Handle any exceptions that occurred
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append({
+                    "filename": request.entries[i].filename,
+                    "success": False,
+                    "error": f"Attendee extraction failed: {str(result)}"
+                })
+            else:
+                processed_results.append({
+                    "filename": request.entries[i].filename,
+                    "success": True,
+                    "attendees": result
+                })
+        
+        total_processing_time = int((time.time() - start_time) * 1000)
+        
+        print(f"Completed attendee extraction for all {len(request.entries)} entries in {total_processing_time}ms")
+        
+        return JSONResponse(content={
+            "success": True,
+            "total_entries": len(request.entries),
+            "processing_time_ms": total_processing_time,
+            "results": processed_results
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Attendee extraction failed: {str(e)}")
+
+@app.post("/extract-vote-patterns-batch")
+async def extract_vote_patterns_batch(request: MultiTextAnalysisRequest):
+    """Extract vote patterns for one or multiple text entries"""
+    
+    if not request.api_key:
+        raise HTTPException(status_code=400, detail="API key is required")
+    
+    if not request.entries:
+        raise HTTPException(status_code=400, detail="At least one text entry is required")
+    
+    try:
+        # Initialize OpenAI client with provided API key
+        client = OpenAI(api_key=request.api_key)
+        
+        start_time = time.time()
+        
+        print(f"Starting vote pattern extraction for {len(request.entries)} text entries")
+        
+        # Process all entries in parallel
+        tasks = [
+            extract_vote_patterns_async(client, entry.text)
+            for entry in request.entries
+        ]
+        
+        # Execute all tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Handle any exceptions that occurred
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append({
+                    "filename": request.entries[i].filename,
+                    "success": False,
+                    "error": f"Vote pattern extraction failed: {str(result)}"
+                })
+            else:
+                processed_results.append({
+                    "filename": request.entries[i].filename,
+                    "success": True,
+                    "vote_patterns": result
+                })
+        
+        total_processing_time = int((time.time() - start_time) * 1000)
+        
+        print(f"Completed vote pattern extraction for all {len(request.entries)} entries in {total_processing_time}ms")
+        
+        return JSONResponse(content={
+            "success": True,
+            "total_entries": len(request.entries),
+            "processing_time_ms": total_processing_time,
+            "results": processed_results
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Vote pattern extraction failed: {str(e)}")
 
 @app.get("/health")
 async def health_check():
