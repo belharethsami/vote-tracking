@@ -137,7 +137,7 @@ async def extract_attendees_async(client: OpenAI, text: str) -> dict:
         response = await loop.run_in_executor(
             None,
             lambda: client.responses.create(
-                model="gpt-4.1",
+                model="gpt-5",
                 input=[
                     {
                         "role": "system",
@@ -191,7 +191,9 @@ async def extract_attendees_async(client: OpenAI, text: str) -> dict:
                         }
                     }
                 },
-                reasoning={},
+                reasoning={
+                    "effort": "minimal"
+                },
                 tools=[],
                 temperature=1,
                 max_output_tokens=2048,
@@ -263,8 +265,8 @@ async def extract_vote_patterns_async(client: OpenAI, text: str) -> dict:
                                                             "type": "string",
                                                             "description": "The mutually exclusive action taken by the member on this bill.",
                                                             "enum": [
-                                                                "sponsored",
-                                                                "co_sponsored",
+                                                                "sponsored/mover",
+                                                                "co_sponsored/seconder",
                                                                 "voted_for",
                                                                 "voted_against",
                                                                 "abstained"
@@ -295,7 +297,7 @@ async def extract_vote_patterns_async(client: OpenAI, text: str) -> dict:
                     }
                 },
                 reasoning={
-                    "effort": "medium"
+                    "effort": "high"
                 },
                 tools=[],
                 store=True
