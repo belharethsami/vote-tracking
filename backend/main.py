@@ -13,6 +13,7 @@ from typing import List
 import json
 import asyncio
 import time
+import math
 
 app = FastAPI(title="Vote Tracking API")
 
@@ -43,6 +44,133 @@ class MultiTextEntry(BaseModel):
 class MultiTextAnalysisRequest(BaseModel):
     entries: List[MultiTextEntry]
     api_key: str
+
+def create_text_windows(text: str, window_size: int = 20000, shift_size: int = 10000, threshold: int = 25000) -> List[str]:
+    """
+    Split text into overlapping windows if it exceeds the threshold.
+    
+    Args:
+        text: Input text to split
+        window_size: Size of each window in characters (default: 20000)
+        shift_size: How much to shift between windows in characters (default: 10000)
+        threshold: Minimum text length to trigger windowing (default: 25000)
+    
+    Returns:
+        List of text chunks. If text <= threshold, returns [text].
+        Otherwise returns overlapping windows.
+    """
+    text_length = len(text)
+    
+    # If text is small enough, return as-is
+    if text_length <= threshold:
+        return [text]
+    
+    windows = []
+    start_pos = 0
+    
+    while start_pos < text_length:
+        # Calculate end position for this window
+        end_pos = min(start_pos + window_size, text_length)
+        
+        # Extract the window
+        window = text[start_pos:end_pos]
+        windows.append(window)
+        
+        # If this window reaches the end of text, we're done
+        if end_pos >= text_length:
+            break
+            
+        # Move to next window start position
+        start_pos += shift_size
+    
+    return windows
+
+def merge_vote_pattern_results(results: List[dict]) -> dict:
+    """
+    Merge vote pattern results from multiple text windows.
+    
+    Args:
+        results: List of vote pattern result dictionaries, each containing a "bills" array
+        
+    Returns:
+        Merged result dictionary with combined bills and resolved conflicts
+    """
+    if not results:
+        return {"bills": []}
+    
+    # Define action priority (higher number = higher priority)
+    action_priority = {
+        "abstained": 1,
+        "voted_against": 2,
+        "voted_for": 3,
+        "co_sponsored/seconder": 4,
+        "sponsored/mover": 5
+    }
+    
+    # Dictionary to store merged bills by bill_name
+    merged_bills = {}
+    
+    for result in results:
+        # Handle case where result might be a string (JSON) or already parsed dict
+        if isinstance(result, str):
+            try:
+                result = json.loads(result)
+            except:
+                continue
+        
+        # Skip if result doesn't have bills
+        if not isinstance(result, dict) or "bills" not in result:
+            continue
+            
+        for bill in result["bills"]:
+            bill_name = bill.get("bill_name", "")
+            if not bill_name:
+                continue
+                
+            # Initialize bill if not seen before
+            if bill_name not in merged_bills:
+                merged_bills[bill_name] = {
+                    "bill_name": bill_name,
+                    "council_members": {}
+                }
+            
+            # Merge council members for this bill
+            for member in bill.get("council_members", []):
+                member_name = member.get("member_name", "")
+                action = member.get("action", "")
+                
+                if not member_name or not action:
+                    continue
+                
+                # If this member hasn't been seen for this bill, add them
+                if member_name not in merged_bills[bill_name]["council_members"]:
+                    merged_bills[bill_name]["council_members"][member_name] = action
+                else:
+                    # Resolve conflict by choosing higher priority action
+                    existing_action = merged_bills[bill_name]["council_members"][member_name]
+                    existing_priority = action_priority.get(existing_action, 0)
+                    new_priority = action_priority.get(action, 0)
+                    
+                    if new_priority > existing_priority:
+                        merged_bills[bill_name]["council_members"][member_name] = action
+    
+    # Convert merged bills back to the expected format
+    final_bills = []
+    for bill_name, bill_data in merged_bills.items():
+        council_members = [
+            {
+                "member_name": member_name,
+                "action": action
+            }
+            for member_name, action in bill_data["council_members"].items()
+        ]
+        
+        final_bills.append({
+            "bill_name": bill_name,
+            "council_members": council_members
+        })
+    
+    return {"bills": final_bills}
 
 def image_to_base64(image: Image.Image) -> str:
     """Convert PIL Image to base64 string"""
@@ -535,29 +663,87 @@ async def extract_vote_patterns_batch(request: MultiTextAnalysisRequest):
         
         print(f"Starting vote pattern extraction for {len(request.entries)} text entries")
         
-        # Process all entries in parallel
-        tasks = [
-            extract_vote_patterns_async(client, entry.text)
-            for entry in request.entries
-        ]
-        
-        # Execute all tasks in parallel
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Handle any exceptions that occurred
+        # Process each entry (some may require windowing)
         processed_results = []
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
+        
+        for entry in request.entries:
+            try:
+                text_length = len(entry.text)
+                print(f"Processing {entry.filename} - {text_length} characters")
+                
+                # Check if text requires windowed processing
+                if text_length > 25000:
+                    print(f"  Using windowed processing for {entry.filename}")
+                    
+                    # Create windows
+                    windows = create_text_windows(entry.text)
+                    print(f"  Created {len(windows)} windows for {entry.filename}")
+                    
+                    # Process each window in parallel
+                    window_tasks = [
+                        extract_vote_patterns_async(client, window_text)
+                        for window_text in windows
+                    ]
+                    
+                    # Execute window tasks
+                    window_results = await asyncio.gather(*window_tasks, return_exceptions=True)
+                    
+                    # Filter out exceptions and extract successful results
+                    successful_results = []
+                    for j, window_result in enumerate(window_results):
+                        if isinstance(window_result, Exception):
+                            print(f"  Window {j+1} failed for {entry.filename}: {str(window_result)}")
+                        else:
+                            successful_results.append(window_result)
+                    
+                    if not successful_results:
+                        processed_results.append({
+                            "filename": entry.filename,
+                            "success": False,
+                            "error": "All windows failed during processing",
+                            "windowed_processing": True,
+                            "window_count": len(windows),
+                            "original_text_length": text_length
+                        })
+                    else:
+                        # Merge results from all windows
+                        merged_result = merge_vote_pattern_results(successful_results)
+                        
+                        processed_results.append({
+                            "filename": entry.filename,
+                            "success": True,
+                            "vote_patterns": merged_result,
+                            "windowed_processing": True,
+                            "window_count": len(windows),
+                            "original_text_length": text_length,
+                            "successful_windows": len(successful_results)
+                        })
+                        
+                        print(f"  Completed windowed processing for {entry.filename}")
+                
+                else:
+                    print(f"  Using standard processing for {entry.filename}")
+                    
+                    # Standard processing for smaller texts
+                    result = await extract_vote_patterns_async(client, entry.text)
+                    
+                    processed_results.append({
+                        "filename": entry.filename,
+                        "success": True,
+                        "vote_patterns": result,
+                        "windowed_processing": False,
+                        "original_text_length": text_length
+                    })
+                    
+                    print(f"  Completed standard processing for {entry.filename}")
+                    
+            except Exception as e:
                 processed_results.append({
-                    "filename": request.entries[i].filename,
+                    "filename": entry.filename,
                     "success": False,
-                    "error": f"Vote pattern extraction failed: {str(result)}"
-                })
-            else:
-                processed_results.append({
-                    "filename": request.entries[i].filename,
-                    "success": True,
-                    "vote_patterns": result
+                    "error": f"Vote pattern extraction failed: {str(e)}",
+                    "windowed_processing": text_length > 25000 if 'text_length' in locals() else False,
+                    "original_text_length": text_length if 'text_length' in locals() else 0
                 })
         
         total_processing_time = int((time.time() - start_time) * 1000)
