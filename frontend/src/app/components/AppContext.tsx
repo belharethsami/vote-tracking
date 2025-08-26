@@ -15,8 +15,8 @@ export interface PdfResult {
     }>
   }
   extractedText?: string
-  attendees?: any
-  votePatterns?: any
+  attendees?: unknown
+  votePatterns?: unknown
   processingTimeMs?: number
   attendeesError?: string
   votePatternsError?: string
