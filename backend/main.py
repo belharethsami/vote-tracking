@@ -45,6 +45,11 @@ class MultiTextAnalysisRequest(BaseModel):
     entries: List[MultiTextEntry]
     api_key: str
 
+class MultiTextAnalysisWithRubricRequest(BaseModel):
+    entries: List[MultiTextEntry]
+    rubric: str
+    api_key: str
+
 def create_text_windows(text: str, window_size: int = 20000, shift_size: int = 10000, threshold: int = 25000) -> List[str]:
     """
     Split text into overlapping windows if it exceeds the threshold.
@@ -435,6 +440,102 @@ async def extract_vote_patterns_async(client: OpenAI, text: str) -> dict:
     except Exception as e:
         raise e
 
+async def analyze_laws_async(client: OpenAI, text: str, rubric: str) -> dict:
+    """Analyze laws based on rubric asynchronously"""
+    try:
+        # Combine rubric and text as specified in the requirements
+        combined_content = f"[rubric here]\n{rubric}\n[ocr text here]\n{text}"
+        
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: client.responses.create(
+                model="gpt-5",
+                input=[
+                    {
+                        "role": "developer",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": "Based on the following rubric and text, give a score for each law and provide an explanation for the score"
+                            }
+                        ]
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": combined_content
+                            }
+                        ]
+                    }
+                ],
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "law_rubric_scoring",
+                        "strict": True,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "laws": {
+                                    "type": "array",
+                                    "description": "A list of all laws scored per the context-specific rubric.",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "law_name": {
+                                                "type": "string",
+                                                "description": "The short name or official title of the law."
+                                            },
+                                            "description": {
+                                                "type": "string",
+                                                "description": "A summary or plain-language description of the law."
+                                            },
+                                            "score": {
+                                                "type": "number",
+                                                "description": "The numeric score for this law according to the rubric.",
+                                                "minimum": 0
+                                            },
+                                            "explanation": {
+                                                "type": "string",
+                                                "description": "Explanation (with reasoning) for why this law received its score."
+                                            }
+                                        },
+                                        "required": [
+                                            "law_name",
+                                            "description",
+                                            "score",
+                                            "explanation"
+                                        ],
+                                        "additionalProperties": False
+                                    }
+                                }
+                            },
+                            "required": [
+                                "laws"
+                            ],
+                            "additionalProperties": False
+                        }
+                    },
+                    "verbosity": "medium"
+                },
+                reasoning={
+                    "effort": "high"
+                },
+                tools=[],
+                store=True,
+                include=[
+                    "reasoning.encrypted_content",
+                    "web_search_call.action.sources"
+                ]
+            )
+        )
+        return response.output_text
+    except Exception as e:
+        raise e
+
 async def process_single_pdf_ocr_only(
     client: OpenAI, 
     file_content: bytes, 
@@ -759,6 +860,66 @@ async def extract_vote_patterns_batch(request: MultiTextAnalysisRequest):
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Vote pattern extraction failed: {str(e)}")
+
+@app.post("/analyze-laws-batch")
+async def analyze_laws_batch(request: MultiTextAnalysisWithRubricRequest):
+    """Analyze laws based on rubric for one or multiple text entries"""
+    
+    if not request.api_key:
+        raise HTTPException(status_code=400, detail="API key is required")
+    
+    if not request.entries:
+        raise HTTPException(status_code=400, detail="At least one text entry is required")
+    
+    if not request.rubric.strip():
+        raise HTTPException(status_code=400, detail="Rubric is required")
+    
+    try:
+        # Initialize OpenAI client with provided API key
+        client = OpenAI(api_key=request.api_key)
+        
+        start_time = time.time()
+        
+        print(f"Starting law analysis for {len(request.entries)} text entries")
+        
+        # Process all entries in parallel
+        tasks = [
+            analyze_laws_async(client, entry.text, request.rubric)
+            for entry in request.entries
+        ]
+        
+        # Execute all tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Handle any exceptions that occurred
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append({
+                    "filename": request.entries[i].filename,
+                    "success": False,
+                    "error": f"Law analysis failed: {str(result)}"
+                })
+            else:
+                processed_results.append({
+                    "filename": request.entries[i].filename,
+                    "success": True,
+                    "law_analysis": result
+                })
+        
+        total_processing_time = int((time.time() - start_time) * 1000)
+        
+        print(f"Completed law analysis for all {len(request.entries)} entries in {total_processing_time}ms")
+        
+        return JSONResponse(content={
+            "success": True,
+            "total_entries": len(request.entries),
+            "processing_time_ms": total_processing_time,
+            "results": processed_results
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Law analysis failed: {str(e)}")
 
 @app.get("/health")
 async def health_check():

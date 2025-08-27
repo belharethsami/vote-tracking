@@ -3,6 +3,7 @@
 import { RubricEntrySection } from '../components/RubricEntrySection'
 import { PdfUploadSection } from '../components/PdfUploadSection'
 import { OcrProcessingSection } from '../components/OcrProcessingSection'
+import { AnalysisSection } from '../components/AnalysisSection'
 
 export default function PdfAnalysisPage() {
   return (
@@ -16,9 +17,10 @@ export default function PdfAnalysisPage() {
         </p>
       </div>
 
-      <RubricEntrySection />
       <PdfUploadSection />
+      <RubricEntrySection />
       <OcrProcessingSection />
+      <AnalysisSection />
     </div>
   )
 }

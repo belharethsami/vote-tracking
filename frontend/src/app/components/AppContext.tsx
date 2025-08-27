@@ -17,9 +17,11 @@ export interface PdfResult {
   extractedText?: string
   attendees?: unknown
   votePatterns?: unknown
+  lawAnalysis?: unknown
   processingTimeMs?: number
   attendeesError?: string
   votePatternsError?: string
+  lawAnalysisError?: string
   error?: string
 }
 
