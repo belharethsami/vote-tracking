@@ -27,7 +27,9 @@ export interface AppState {
   apiKey: string
   files: File[]
   results: PdfResult[]
+  rubric: string
   currentStep: number
+  step0Status: 'idle' | 'complete'
   step1Status: 'idle' | 'processing' | 'complete' | 'error'
   step2Status: 'idle' | 'processing' | 'complete' | 'error'  
   step3Status: 'idle' | 'processing' | 'complete' | 'error'
@@ -41,6 +43,7 @@ interface AppContextType {
   setFiles: (files: File[]) => void
   setResults: (results: PdfResult[]) => void
   updateResults: (results: Partial<PdfResult>[]) => void
+  setRubric: (rubric: string) => void
   setStepStatus: (step: 1 | 2 | 3, status: 'idle' | 'processing' | 'complete' | 'error') => void
   clearData: () => void
 }
@@ -51,7 +54,9 @@ const initialState: AppState = {
   apiKey: '',
   files: [],
   results: [],
+  rubric: '',
   currentStep: 1,
+  step0Status: 'idle',
   step1Status: 'idle',
   step2Status: 'idle',
   step3Status: 'idle'
@@ -83,6 +88,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setState(prev => ({ ...prev, results }))
   }, [])
 
+  const setRubric = useCallback((rubric: string) => {
+    setState(prev => ({ 
+      ...prev, 
+      rubric,
+      step0Status: rubric.trim() ? 'complete' : 'idle'
+    }))
+  }, [])
+
   const updateResults = useCallback((updates: Partial<PdfResult>[]) => {
     setState(prev => {
       const newResults = [...prev.results]
@@ -107,6 +120,8 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ...prev,
       files: [],
       results: [],
+      rubric: '',
+      step0Status: 'idle',
       step1Status: 'idle',
       step2Status: 'idle',
       step3Status: 'idle'
@@ -121,6 +136,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setFiles,
     setResults,
     updateResults,
+    setRubric,
     setStepStatus,
     clearData
   }

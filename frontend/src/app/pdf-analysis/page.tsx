@@ -1,5 +1,6 @@
 'use client'
 
+import { RubricEntrySection } from '../components/RubricEntrySection'
 import { PdfUploadSection } from '../components/PdfUploadSection'
 import { OcrProcessingSection } from '../components/OcrProcessingSection'
 
@@ -15,6 +16,7 @@ export default function PdfAnalysisPage() {
         </p>
       </div>
 
+      <RubricEntrySection />
       <PdfUploadSection />
       <OcrProcessingSection />
     </div>
