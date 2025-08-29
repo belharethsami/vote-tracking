@@ -46,12 +46,13 @@ export function OcrProcessingSection() {
 
       const data = await response.json()
       
-      // Update results with OCR data
+      // Update results with text extraction data
       const updates = data.results.map((result: unknown) => {
         const typedResult = result as {
           filename: string
           success: boolean
           total_pages?: number
+          extraction_method?: 'direct' | 'ocr'
           ocr_results?: unknown
           extracted_text?: string
           error?: string
@@ -59,6 +60,7 @@ export function OcrProcessingSection() {
         return {
           ...typedResult,
           totalPages: typedResult.total_pages,
+          extractionMethod: typedResult.extraction_method,
           ocrResults: typedResult.ocr_results,
           extractedText: typedResult.extracted_text
         }
@@ -86,7 +88,7 @@ export function OcrProcessingSection() {
   return (
     <div className="bg-white shadow-lg rounded-lg p-6 mb-8">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-gray-900">Step 1: PDF OCR</h2>
+        <h2 className="text-xl font-bold text-gray-900">Step 1: Text Extraction</h2>
         <div className="flex items-center space-x-2">
           {state.step1Status === 'complete' && (
             <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-medium">
@@ -106,7 +108,7 @@ export function OcrProcessingSection() {
         disabled={state.step1Status === 'processing' || !state.apiKey || state.files.length === 0}
         className="mb-4 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
       >
-        {state.step1Status === 'processing' ? 'Processing OCR...' : `Process ${state.files.length} PDF(s) with OCR`}
+        {state.step1Status === 'processing' ? 'Extracting Text...' : `Extract Text from ${state.files.length} PDF(s)`}
       </button>
 
       {error && (
@@ -122,9 +124,20 @@ export function OcrProcessingSection() {
               <div className="flex items-center justify-between mb-2">
                 <h3 className="font-semibold text-gray-900">{result.filename}</h3>
                 {result.success ? (
-                  <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">
-                    Success ({result.totalPages} pages)
-                  </span>
+                  <div className="flex space-x-2">
+                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">
+                      Success ({result.totalPages} pages)
+                    </span>
+                    {result.extractionMethod && (
+                      <span className={`px-2 py-1 rounded text-sm ${
+                        result.extractionMethod === 'direct' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {result.extractionMethod === 'direct' ? 'Direct' : 'OCR'}
+                      </span>
+                    )}
+                  </div>
                 ) : (
                   <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm">
                     Failed
@@ -141,7 +154,7 @@ export function OcrProcessingSection() {
                     value={result.extractedText || ''}
                     onChange={(e) => handleTextEdit(result.filename, 'extractedText', e.target.value)}
                     className="w-full h-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black resize-none overflow-y-auto"
-                    placeholder="OCR extracted text will appear here..."
+                    placeholder="Extracted text will appear here..."
                   />
                 </div>
               )}

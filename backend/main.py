@@ -8,6 +8,7 @@ import base64
 from io import BytesIO
 from PIL import Image
 from pdf2image import convert_from_path
+import PyPDF2
 from openai import OpenAI
 from typing import List
 import json
@@ -176,6 +177,41 @@ def merge_vote_pattern_results(results: List[dict]) -> dict:
         })
     
     return {"bills": final_bills}
+
+def extract_text_directly_from_pdf(pdf_path: str) -> tuple[str, int]:
+    """
+    Extract text directly from PDF using PyPDF2.
+    
+    Args:
+        pdf_path: Path to the PDF file
+        
+    Returns:
+        Tuple of (extracted_text, page_count)
+    """
+    try:
+        extracted_text = ""
+        page_count = 0
+        
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            page_count = len(pdf_reader.pages)
+            
+            for page_num, page in enumerate(pdf_reader.pages):
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        extracted_text += f"\n\n--- Page {page_num + 1} ---\n"
+                        extracted_text += page_text
+                except Exception as e:
+                    print(f"Failed to extract text from page {page_num + 1}: {str(e)}")
+                    # Continue to next page if one page fails
+                    continue
+        
+        return extracted_text.strip(), page_count
+        
+    except Exception as e:
+        print(f"Failed to extract text from PDF {pdf_path}: {str(e)}")
+        return "", 0
 
 def image_to_base64(image: Image.Image) -> str:
     """Convert PIL Image to base64 string"""
@@ -536,13 +572,13 @@ async def analyze_laws_async(client: OpenAI, text: str, rubric: str) -> dict:
     except Exception as e:
         raise e
 
-async def process_single_pdf_ocr_only(
+async def process_single_pdf_text_extraction(
     client: OpenAI, 
     file_content: bytes, 
     filename: str,
     semaphore: asyncio.Semaphore
 ) -> dict:
-    """Process single PDF OCR only (step 1)"""
+    """Process single PDF with hybrid text extraction: direct extraction first, OCR fallback"""
     
     async with semaphore:
         start_time = time.time()
@@ -554,7 +590,33 @@ async def process_single_pdf_ocr_only(
                 temp_file.write(file_content)
                 temp_pdf_path = temp_file.name
             
-            # Convert PDF pages to images
+            # Step 1: Try direct text extraction first
+            print(f"Attempting direct text extraction for {filename}")
+            extracted_text, page_count = extract_text_directly_from_pdf(temp_pdf_path)
+            
+            # Check if direct extraction was successful (threshold: 100 characters minimum)
+            if extracted_text and len(extracted_text.strip()) >= 100:
+                print(f"Direct text extraction successful for {filename}: {len(extracted_text)} characters from {page_count} pages")
+                
+                # Clean up temp file
+                if temp_pdf_path:
+                    os.unlink(temp_pdf_path)
+                
+                processing_time = int((time.time() - start_time) * 1000)
+                
+                return {
+                    "filename": filename,
+                    "success": True,
+                    "total_pages": page_count,
+                    "extraction_method": "direct",
+                    "extracted_text": extracted_text.strip(),
+                    "processing_time_ms": processing_time
+                }
+            
+            # Step 2: Fallback to OCR if direct extraction failed or yielded minimal text
+            print(f"Direct extraction insufficient for {filename} ({len(extracted_text)} chars), falling back to OCR")
+            
+            # Convert PDF pages to images for OCR
             try:
                 images = convert_from_path(temp_pdf_path)
             except Exception as e:
@@ -563,12 +625,12 @@ async def process_single_pdf_ocr_only(
                 return {
                     "filename": filename,
                     "success": False,
-                    "error": f"Failed to convert PDF: {str(e)}",
+                    "error": f"Failed to convert PDF for OCR: {str(e)}",
                     "processing_time_ms": int((time.time() - start_time) * 1000)
                 }
             
-            # Step 1: OCR Processing in parallel
-            print(f"Starting OCR for {filename} with {len(images)} pages")
+            # OCR Processing in parallel
+            print(f"Starting OCR fallback for {filename} with {len(images)} pages")
             page_semaphore = asyncio.Semaphore(20)  # Max 20 pages in parallel
             ocr_tasks = [
                 process_page_async(client, image, i, page_semaphore)
@@ -577,31 +639,32 @@ async def process_single_pdf_ocr_only(
             ocr_results = await asyncio.gather(*ocr_tasks)
             
             # Extract combined text from OCR results
-            extracted_text = ""
+            ocr_text = ""
             for result in ocr_results:
                 if result.get("response") and not result.get("error"):
                     try:
                         parsed = json.loads(result["response"])
-                        extracted_text += parsed.get("text", result["response"]) + "\n\n"
+                        ocr_text += parsed.get("text", result["response"]) + "\n\n"
                     except:
-                        extracted_text += str(result["response"]) + "\n\n"
+                        ocr_text += str(result["response"]) + "\n\n"
             
             # Clean up temp file
             if temp_pdf_path:
                 os.unlink(temp_pdf_path)
             
             processing_time = int((time.time() - start_time) * 1000)
-            print(f"Completed OCR for {filename} in {processing_time}ms")
+            print(f"Completed OCR fallback for {filename} in {processing_time}ms")
             
             return {
                 "filename": filename,
                 "success": True,
                 "total_pages": len(images),
+                "extraction_method": "ocr",
                 "ocr_results": {
                     "total_pages": len(images),
                     "results": ocr_results
                 },
-                "extracted_text": extracted_text.strip(),
+                "extracted_text": ocr_text.strip(),
                 "processing_time_ms": processing_time
             }
             
@@ -625,7 +688,7 @@ async def process_pdfs(
     files: List[UploadFile] = File(...),
     api_key: str = Form(...)
 ):
-    """Process one or multiple PDF files OCR (step 1)"""
+    """Process one or multiple PDF files with hybrid text extraction (step 1)"""
     
     if not api_key:
         raise HTTPException(status_code=400, detail="OpenAI API key is required")
@@ -644,7 +707,7 @@ async def process_pdfs(
         
         start_time = time.time()
         
-        print(f"Starting OCR processing of {len(files)} PDF file(s)")
+        print(f"Starting text extraction of {len(files)} PDF file(s)")
         
         # Read all file contents first
         file_contents = []
@@ -652,10 +715,10 @@ async def process_pdfs(
             content = await file.read()
             file_contents.append((content, file.filename))
         
-        # Process all PDFs in parallel with max 5 concurrent files to avoid API rate limits
-        semaphore = asyncio.Semaphore(5)
+        # Process all PDFs in parallel with higher concurrency since direct extraction doesn't hit API limits
+        semaphore = asyncio.Semaphore(20)  # Increased from 5 to 20 since direct extraction is much faster
         tasks = [
-            process_single_pdf_ocr_only(client, content, filename, semaphore)
+            process_single_pdf_text_extraction(client, content, filename, semaphore)
             for content, filename in file_contents
         ]
         
@@ -677,7 +740,7 @@ async def process_pdfs(
         
         total_processing_time = int((time.time() - start_time) * 1000)
         
-        print(f"Completed OCR processing all {len(files)} file(s) in {total_processing_time}ms")
+        print(f"Completed text extraction of all {len(files)} file(s) in {total_processing_time}ms")
         
         return JSONResponse(content={
             "success": True,
@@ -687,7 +750,7 @@ async def process_pdfs(
         })
         
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"PDF processing failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Text extraction failed: {str(e)}")
 
 @app.post("/extract-attendees-batch")
 async def extract_attendees_batch(request: MultiTextAnalysisRequest):

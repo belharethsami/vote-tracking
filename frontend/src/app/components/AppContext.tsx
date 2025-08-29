@@ -6,6 +6,7 @@ export interface PdfResult {
   filename: string
   success: boolean
   totalPages?: number
+  extractionMethod?: 'direct' | 'ocr'
   ocrResults?: {
     totalPages: number
     results: Array<{
