@@ -17,17 +17,19 @@ import time
 import math
 
 app = FastAPI(title="Vote Tracking API")
-
-# Configure CORS for frontend - more flexible for development
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+origins = [
         "http://localhost:3000",
         "http://127.0.0.1:3000", 
         "http://localhost:3001",
         "http://127.0.0.1:3001",
-        "https://*.vercel.app"
-    ],
+    ]
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    origins.append(frontend_url)
+# Configure CORS for frontend - more flexible for development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
