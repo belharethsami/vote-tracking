@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useApp } from './components/AppContext'
-import { RubricEntrySection } from './components/RubricEntrySection'
 import { PdfUploadSection } from './components/PdfUploadSection'
 import { OcrProcessingSection } from './components/OcrProcessingSection'
 
@@ -141,7 +140,6 @@ export default function Home() {
         </p>
       </div>
 
-      <RubricEntrySection />
       <PdfUploadSection />
       <OcrProcessingSection />
 
