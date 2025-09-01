@@ -791,10 +791,11 @@ async def extract_attendees_batch(request: MultiTextAnalysisRequest):
                     "error": f"Attendee extraction failed: {str(result)}"
                 })
             else:
+                parsed_result = json.loads(result)
                 processed_results.append({
                     "filename": request.entries[i].filename,
                     "success": True,
-                    "attendees": result
+                    "attendees": parsed_result
                 })
         
         total_processing_time = int((time.time() - start_time) * 1000)
@@ -893,10 +894,11 @@ async def extract_vote_patterns_batch(request: MultiTextAnalysisRequest):
                     # Standard processing for smaller texts
                     result = await extract_vote_patterns_async(client, entry.text)
                     
+                    parsed_result = json.loads(result)
                     processed_results.append({
                         "filename": entry.filename,
                         "success": True,
-                        "vote_patterns": result,
+                        "vote_patterns": parsed_result,
                         "windowed_processing": False,
                         "original_text_length": text_length
                     })
@@ -966,10 +968,11 @@ async def analyze_laws_batch(request: MultiTextAnalysisWithRubricRequest):
                     "error": f"Law analysis failed: {str(result)}"
                 })
             else:
+                parsed_result = json.loads(result)
                 processed_results.append({
                     "filename": request.entries[i].filename,
                     "success": True,
-                    "law_analysis": result
+                    "law_analysis": parsed_result
                 })
         
         total_processing_time = int((time.time() - start_time) * 1000)
