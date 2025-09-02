@@ -1,0 +1,2817 @@
+This file is a merged representation of the entire codebase, combined into a single document by Repomix.
+
+<file_summary>
+This section contains a summary of this file.
+
+<purpose>
+This file contains a packed representation of the entire repository's contents.
+It is designed to be easily consumable by AI systems for analysis, code review,
+or other automated processes.
+</purpose>
+
+<file_format>
+The content is organized as follows:
+1. This summary section
+2. Repository information
+3. Directory structure
+4. Repository files (if enabled)
+5. Multiple file entries, each consisting of:
+  - File path as an attribute
+  - Full contents of the file
+</file_format>
+
+<usage_guidelines>
+- This file should be treated as read-only. Any changes should be made to the
+  original repository files, not this packed version.
+- When processing this file, use the file path to distinguish
+  between different files in the repository.
+- Be aware that this file may contain sensitive information. Handle it with
+  the same level of security as you would the original repository.
+</usage_guidelines>
+
+<notes>
+- Some files may have been excluded based on .gitignore rules and Repomix's configuration
+- Binary files are not included in this packed representation. Please refer to the Repository Structure section for a complete list of file paths, including binary files
+- Files matching patterns in .gitignore are excluded
+- Files matching default ignore patterns are excluded
+- Files are sorted by Git change count (files with more changes are at the bottom)
+</notes>
+
+</file_summary>
+
+<directory_structure>
+.claude/
+  settings.local.json
+backend/
+  .vercel/
+    project.json
+    README.txt
+  main.py
+  render.yaml
+  requirements.txt
+  test_windowing.py
+frontend/
+  public/
+    file.svg
+    globe.svg
+    next.svg
+    vercel.svg
+    window.svg
+  src/
+    app/
+      components/
+        AnalysisSection.tsx
+        AppContext.tsx
+        OcrProcessingSection.tsx
+        PdfUploadSection.tsx
+        RubricEntrySection.tsx
+        TopNavigation.tsx
+      pdf-analysis/
+        page.tsx
+      globals.css
+      layout.tsx
+      page.tsx
+  .gitignore
+  eslint.config.mjs
+  next.config.js
+  next.config.ts
+  package.json
+  postcss.config.mjs
+  README.md
+  tsconfig.json
+.python-version
+CLAUDE.md
+example.json
+main.py
+pyproject.toml
+README.md
+</directory_structure>
+
+<files>
+This section contains the contents of the repository's files.
+
+<file path=".claude/settings.local.json">
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(npx create-next-app:*)",
+      "Bash(curl:*)",
+      "Bash(git submodule:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(git add:*)",
+      "Bash(git config:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pip show:*)",
+      "Bash(python:*)",
+      "Bash(npm run build:*)",
+      "Bash(rm:*)",
+      "Bash(npm run dev:*)",
+      "Bash(npm install)",
+      "Bash(npm run lint)"
+    ],
+    "deny": [],
+    "defaultMode": "acceptEdits"
+  }
+}
+</file>
+
+<file path=".python-version">
+3.13
+</file>
+
+<file path="main.py">
+def main():
+    print("Hello from vote-tracking!")
+
+
+if __name__ == "__main__":
+    main()
+</file>
+
+<file path="pyproject.toml">
+[project]
+name = "vote-tracking"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "sentry-sdk[fastapi]>=2.35.1",
+]
+</file>
+
+<file path="backend/.vercel/project.json">
+{"projectId":"prj_BQ4dpYWxPbZXxSBnrbjvjMN48HVo","orgId":"team_i1yYjLcTJIkPG723CqilYCBv"}
+</file>
+
+<file path="backend/.vercel/README.txt">
+> Why do I have a folder named ".vercel" in my project?
+The ".vercel" folder is created when you link a directory to a Vercel project.
+
+> What does the "project.json" file contain?
+The "project.json" file contains:
+- The ID of the Vercel project that you linked ("projectId")
+- The ID of the user or team your Vercel project is owned by ("orgId")
+
+> Should I commit the ".vercel" folder?
+No, you should not share the ".vercel" folder with anyone.
+Upon creation, it will be automatically added to your ".gitignore" file.
+</file>
+
+<file path="backend/render.yaml">
+services:
+  - type: web
+    name: pdf-processor-backend
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+</file>
+
+<file path="backend/requirements.txt">
+fastapi
+uvicorn
+python-multipart
+PyPDF2
+Pillow
+pdf2image
+openai
+python-dotenv
+</file>
+
+<file path="backend/test_windowing.py">
+#!/usr/bin/env python3
+"""
+Test script for sliding window vote pattern extraction functionality.
+"""
+import sys
+sys.path.append('/Users/samibelhareth/Documents/vote-tracking/backend')
+
+from main import create_text_windows, merge_vote_pattern_results
+import json
+
+def test_create_text_windows():
+    """Test the create_text_windows function with various text lengths."""
+    print("=== Testing create_text_windows function ===")
+    
+    # Test 1: Text below threshold (should return as-is)
+    small_text = "A" * 20000  # 20k chars
+    windows = create_text_windows(small_text)
+    print(f"Small text (20k chars): {len(windows)} windows")
+    assert len(windows) == 1
+    assert windows[0] == small_text
+    print("✓ Small text test passed")
+    
+    # Test 2: Text at threshold (should return as-is)
+    threshold_text = "B" * 25000  # 25k chars
+    windows = create_text_windows(threshold_text)
+    print(f"Threshold text (25k chars): {len(windows)} windows")
+    assert len(windows) == 1
+    assert windows[0] == threshold_text
+    print("✓ Threshold text test passed")
+    
+    # Test 3: Text just over threshold (should create 2 windows)
+    over_threshold_text = "C" * 30000  # 30k chars
+    windows = create_text_windows(over_threshold_text)
+    print(f"Over threshold text (30k chars): {len(windows)} windows")
+    assert len(windows) == 2
+    assert len(windows[0]) == 20000  # First window: 0-19999
+    assert len(windows[1]) == 20000  # Second window: 10000-29999 (20k chars)
+    assert windows[0] == "C" * 20000
+    assert windows[1] == "C" * 20000
+    print("✓ Over threshold text test passed")
+    
+    # Test 4: Text requiring exactly 4 windows (50k chars)
+    large_text = "D" * 50000  # 50k chars
+    windows = create_text_windows(large_text)
+    print(f"Large text (50k chars): {len(windows)} windows")
+    expected_windows = 4  # 0-20k, 10k-30k, 20k-40k, 30k-50k
+    assert len(windows) == expected_windows
+    
+    # Check window sizes and positions
+    assert len(windows[0]) == 20000  # chars 0-19999
+    assert len(windows[1]) == 20000  # chars 10000-29999
+    assert len(windows[2]) == 20000  # chars 20000-39999
+    assert len(windows[3]) == 20000  # chars 30000-49999
+    
+    # Check overlap
+    assert windows[0][10000:] == windows[1][:10000]  # Overlap between window 0 and 1
+    assert windows[1][10000:] == windows[2][:10000]  # Overlap between window 1 and 2
+    assert windows[2][10000:] == windows[3][:10000]  # Overlap between window 2 and 3
+    print("✓ Large text windowing test passed")
+    
+    print("All windowing tests passed! ✓\n")
+
+def test_merge_vote_pattern_results():
+    """Test the merge_vote_pattern_results function."""
+    print("=== Testing merge_vote_pattern_results function ===")
+    
+    # Test 1: Empty results
+    result = merge_vote_pattern_results([])
+    assert result == {"bills": []}
+    print("✓ Empty results test passed")
+    
+    # Test 2: Single result
+    single_result = {
+        "bills": [
+            {
+                "bill_name": "Bill A",
+                "council_members": [
+                    {"member_name": "John Doe", "action": "sponsored/mover"},
+                    {"member_name": "Jane Smith", "action": "voted_for"}
+                ]
+            }
+        ]
+    }
+    result = merge_vote_pattern_results([single_result])
+    assert len(result["bills"]) == 1
+    assert result["bills"][0]["bill_name"] == "Bill A"
+    assert len(result["bills"][0]["council_members"]) == 2
+    print("✓ Single result test passed")
+    
+    # Test 3: Multiple results with same bill (no conflicts)
+    result1 = {
+        "bills": [
+            {
+                "bill_name": "Bill A",
+                "council_members": [
+                    {"member_name": "John Doe", "action": "sponsored/mover"}
+                ]
+            }
+        ]
+    }
+    result2 = {
+        "bills": [
+            {
+                "bill_name": "Bill A", 
+                "council_members": [
+                    {"member_name": "Jane Smith", "action": "voted_for"}
+                ]
+            }
+        ]
+    }
+    
+    merged = merge_vote_pattern_results([result1, result2])
+    assert len(merged["bills"]) == 1
+    assert merged["bills"][0]["bill_name"] == "Bill A"
+    assert len(merged["bills"][0]["council_members"]) == 2
+    
+    # Check that both members are present
+    member_names = [m["member_name"] for m in merged["bills"][0]["council_members"]]
+    assert "John Doe" in member_names
+    assert "Jane Smith" in member_names
+    print("✓ Multiple results merge test passed")
+    
+    # Test 4: Conflict resolution (higher priority action should win)
+    conflict1 = {
+        "bills": [
+            {
+                "bill_name": "Bill B",
+                "council_members": [
+                    {"member_name": "John Doe", "action": "voted_for"}
+                ]
+            }
+        ]
+    }
+    conflict2 = {
+        "bills": [
+            {
+                "bill_name": "Bill B",
+                "council_members": [
+                    {"member_name": "John Doe", "action": "sponsored/mover"}  # Higher priority
+                ]
+            }
+        ]
+    }
+    
+    merged = merge_vote_pattern_results([conflict1, conflict2])
+    assert len(merged["bills"]) == 1
+    john_doe_action = None
+    for member in merged["bills"][0]["council_members"]:
+        if member["member_name"] == "John Doe":
+            john_doe_action = member["action"]
+            break
+    
+    assert john_doe_action == "sponsored/mover"  # Higher priority should win
+    print("✓ Conflict resolution test passed")
+    
+    # Test 5: Multiple bills across windows
+    multi_bill1 = {
+        "bills": [
+            {
+                "bill_name": "Bill X",
+                "council_members": [{"member_name": "Alice", "action": "voted_for"}]
+            },
+            {
+                "bill_name": "Bill Y", 
+                "council_members": [{"member_name": "Bob", "action": "voted_against"}]
+            }
+        ]
+    }
+    multi_bill2 = {
+        "bills": [
+            {
+                "bill_name": "Bill Y",
+                "council_members": [{"member_name": "Charlie", "action": "abstained"}]
+            },
+            {
+                "bill_name": "Bill Z",
+                "council_members": [{"member_name": "Dave", "action": "co_sponsored/seconder"}]
+            }
+        ]
+    }
+    
+    merged = merge_vote_pattern_results([multi_bill1, multi_bill2])
+    assert len(merged["bills"]) == 3  # Bill X, Bill Y, Bill Z
+    
+    bill_names = [bill["bill_name"] for bill in merged["bills"]]
+    assert "Bill X" in bill_names
+    assert "Bill Y" in bill_names 
+    assert "Bill Z" in bill_names
+    
+    # Bill Y should have both Bob and Charlie
+    bill_y = None
+    for bill in merged["bills"]:
+        if bill["bill_name"] == "Bill Y":
+            bill_y = bill
+            break
+    assert bill_y is not None
+    assert len(bill_y["council_members"]) == 2
+    member_names = [m["member_name"] for m in bill_y["council_members"]]
+    assert "Bob" in member_names
+    assert "Charlie" in member_names
+    
+    print("✓ Multiple bills test passed")
+    print("All merge tests passed! ✓\n")
+
+def test_window_boundaries():
+    """Test edge cases around window boundaries."""
+    print("=== Testing window boundary cases ===")
+    
+    # Test various lengths around the 25k threshold
+    test_lengths = [24999, 25000, 25001, 30000, 39999, 40000, 49999, 50000, 50001]
+    
+    for length in test_lengths:
+        text = "X" * length
+        windows = create_text_windows(text)
+        
+        if length <= 25000:
+            expected_windows = 1
+        else:
+            # Calculate expected windows: ceil((length - 20000) / 10000) + 1
+            expected_windows = ((length - 20000) + 9999) // 10000 + 1
+        
+        print(f"Length {length}: {len(windows)} windows (expected {expected_windows})")
+        assert len(windows) == expected_windows, f"Failed for length {length}: got {len(windows)}, expected {expected_windows}"
+        
+        # Verify total coverage
+        if len(windows) > 1:
+            # First window should be full 20k
+            assert len(windows[0]) == 20000
+            # Last window should not exceed text length
+            last_window_start = (len(windows) - 1) * 10000
+            expected_last_window_size = min(20000, length - last_window_start)
+            assert len(windows[-1]) == expected_last_window_size
+    
+    print("✓ All boundary tests passed")
+
+if __name__ == "__main__":
+    print("Running sliding window tests...\n")
+    
+    try:
+        test_create_text_windows()
+        test_merge_vote_pattern_results()
+        test_window_boundaries()
+        
+        print("🎉 All tests passed successfully!")
+        print("\nSummary:")
+        print("✓ Window creation logic works correctly")
+        print("✓ Result merging handles duplicates and conflicts")
+        print("✓ Edge cases around thresholds are handled properly")
+        print("✓ Overlap between windows is correct")
+        
+    except AssertionError as e:
+        print(f"❌ Test failed: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
+        sys.exit(1)
+</file>
+
+<file path="frontend/public/file.svg">
+<svg fill="none" viewBox="0 0 16 16" xmlns="http://www.w3.org/2000/svg"><path d="M14.5 13.5V5.41a1 1 0 0 0-.3-.7L9.8.29A1 1 0 0 0 9.08 0H1.5v13.5A2.5 2.5 0 0 0 4 16h8a2.5 2.5 0 0 0 2.5-2.5m-1.5 0v-7H8v-5H3v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1M9.5 5V2.12L12.38 5zM5.13 5h-.62v1.25h2.12V5zm-.62 3h7.12v1.25H4.5zm.62 3h-.62v1.25h7.12V11z" clip-rule="evenodd" fill="#666" fill-rule="evenodd"/></svg>
+</file>
+
+<file path="frontend/public/globe.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><g clip-path="url(#a)"><path fill-rule="evenodd" clip-rule="evenodd" d="M10.27 14.1a6.5 6.5 0 0 0 3.67-3.45q-1.24.21-2.7.34-.31 1.83-.97 3.1M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16m.48-1.52a7 7 0 0 1-.96 0H7.5a4 4 0 0 1-.84-1.32q-.38-.89-.63-2.08a40 40 0 0 0 3.92 0q-.25 1.2-.63 2.08a4 4 0 0 1-.84 1.31zm2.94-4.76q1.66-.15 2.95-.43a7 7 0 0 0 0-2.58q-1.3-.27-2.95-.43a18 18 0 0 1 0 3.44m-1.27-3.54a17 17 0 0 1 0 3.64 39 39 0 0 1-4.3 0 17 17 0 0 1 0-3.64 39 39 0 0 1 4.3 0m1.1-1.17q1.45.13 2.69.34a6.5 6.5 0 0 0-3.67-3.44q.65 1.26.98 3.1M8.48 1.5l.01.02q.41.37.84 1.31.38.89.63 2.08a40 40 0 0 0-3.92 0q.25-1.2.63-2.08a4 4 0 0 1 .85-1.32 7 7 0 0 1 .96 0m-2.75.4a6.5 6.5 0 0 0-3.67 3.44 29 29 0 0 1 2.7-.34q.31-1.83.97-3.1M4.58 6.28q-1.66.16-2.95.43a7 7 0 0 0 0 2.58q1.3.27 2.95.43a18 18 0 0 1 0-3.44m.17 4.71q-1.45-.12-2.69-.34a6.5 6.5 0 0 0 3.67 3.44q-.65-1.27-.98-3.1" fill="#666"/></g><defs><clipPath id="a"><path fill="#fff" d="M0 0h16v16H0z"/></clipPath></defs></svg>
+</file>
+
+<file path="frontend/public/next.svg">
+<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 394 80"><path fill="#000" d="M262 0h68.5v12.7h-27.2v66.6h-13.6V12.7H262V0ZM149 0v12.7H94v20.4h44.3v12.6H94v21h55v12.6H80.5V0h68.7zm34.3 0h-17.8l63.8 79.4h17.9l-32-39.7 32-39.6h-17.9l-23 28.6-23-28.6zm18.3 56.7-9-11-27.1 33.7h17.8l18.3-22.7z"/><path fill="#000" d="M81 79.3 17 0H0v79.3h13.6V17l50.2 62.3H81Zm252.6-.4c-1 0-1.8-.4-2.5-1s-1.1-1.6-1.1-2.6.3-1.8 1-2.5 1.6-1 2.6-1 1.8.3 2.5 1a3.4 3.4 0 0 1 .6 4.3 3.7 3.7 0 0 1-3 1.8zm23.2-33.5h6v23.3c0 2.1-.4 4-1.3 5.5a9.1 9.1 0 0 1-3.8 3.5c-1.6.8-3.5 1.3-5.7 1.3-2 0-3.7-.4-5.3-1s-2.8-1.8-3.7-3.2c-.9-1.3-1.4-3-1.4-5h6c.1.8.3 1.6.7 2.2s1 1.2 1.6 1.5c.7.4 1.5.5 2.4.5 1 0 1.8-.2 2.4-.6a4 4 0 0 0 1.6-1.8c.3-.8.5-1.8.5-3V45.5zm30.9 9.1a4.4 4.4 0 0 0-2-3.3 7.5 7.5 0 0 0-4.3-1.1c-1.3 0-2.4.2-3.3.5-.9.4-1.6 1-2 1.6a3.5 3.5 0 0 0-.3 4c.3.5.7.9 1.3 1.2l1.8 1 2 .5 3.2.8c1.3.3 2.5.7 3.7 1.2a13 13 0 0 1 3.2 1.8 8.1 8.1 0 0 1 3 6.5c0 2-.5 3.7-1.5 5.1a10 10 0 0 1-4.4 3.5c-1.8.8-4.1 1.2-6.8 1.2-2.6 0-4.9-.4-6.8-1.2-2-.8-3.4-2-4.5-3.5a10 10 0 0 1-1.7-5.6h6a5 5 0 0 0 3.5 4.6c1 .4 2.2.6 3.4.6 1.3 0 2.5-.2 3.5-.6 1-.4 1.8-1 2.4-1.7a4 4 0 0 0 .8-2.4c0-.9-.2-1.6-.7-2.2a11 11 0 0 0-2.1-1.4l-3.2-1-3.8-1c-2.8-.7-5-1.7-6.6-3.2a7.2 7.2 0 0 1-2.4-5.7 8 8 0 0 1 1.7-5 10 10 0 0 1 4.3-3.5c2-.8 4-1.2 6.4-1.2 2.3 0 4.4.4 6.2 1.2 1.8.8 3.2 2 4.3 3.4 1 1.4 1.5 3 1.5 5h-5.8z"/></svg>
+</file>
+
+<file path="frontend/public/vercel.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1155 1000"><path d="m577.3 0 577.4 1000H0z" fill="#fff"/></svg>
+</file>
+
+<file path="frontend/public/window.svg">
+<svg fill="none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" clip-rule="evenodd" d="M1.5 2.5h13v10a1 1 0 0 1-1 1h-11a1 1 0 0 1-1-1zM0 1h16v11.5a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 0 12.5zm3.75 4.5a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5M7 4.75a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0m1.75.75a.75.75 0 1 0 0-1.5.75.75 0 0 0 0 1.5" fill="#666"/></svg>
+</file>
+
+<file path="frontend/src/app/components/AnalysisSection.tsx">
+'use client'
+
+import { useState } from 'react'
+import { useApp } from './AppContext'
+
+export function AnalysisSection() {
+  const { 
+    state, 
+    setResults, 
+    setStepStatus
+  } = useApp()
+  
+  const [error, setError] = useState('')
+
+  const handleAnalysisProcess = async () => {
+    if (!state.apiKey) {
+      setError('Please enter your API key')
+      return
+    }
+
+    if (!state.rubric.trim()) {
+      setError('Please enter a rubric in Step 0')
+      return
+    }
+
+    const validResults = state.results.filter(result => result.success && result.extractedText)
+    if (validResults.length === 0) {
+      setError('Please complete OCR processing first (Step 1)')
+      return
+    }
+
+    setStepStatus(2, 'processing')
+    setError('')
+    
+    try {
+      const entries = validResults.map(result => ({
+        filename: result.filename,
+        text: result.extractedText || ''
+      }))
+
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+      const response = await fetch(`${backendUrl}/analyze-laws-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          entries,
+          rubric: state.rubric,
+          api_key: state.apiKey
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to analyze laws')
+      }
+
+      const data = await response.json()
+      
+      // Update results with law analysis data
+      const updates = state.results.map(result => {
+        const match = data.results.find((r: { filename: string }) => r.filename === result.filename)
+        if (match && match.success) {
+          return { ...result, lawAnalysis: match.law_analysis }
+        } else if (match && !match.success) {
+          return { ...result, lawAnalysisError: match.error }
+        }
+        return result
+      })
+      
+      setResults(updates)
+      setStepStatus(2, 'complete')
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      setStepStatus(2, 'error')
+      
+      // Update results with error
+      const updates = state.results.map(result => {
+        if (result.success && result.extractedText) {
+          return { ...result, lawAnalysisError: err instanceof Error ? err.message : 'An error occurred' }
+        }
+        return result
+      })
+      setResults(updates)
+    }
+  }
+
+  const canProceedToAnalysis = state.step1Status === 'complete' && 
+                               state.results.some(r => r.success && r.extractedText) && 
+                               state.rubric.trim()
+
+  return (
+    <div className="bg-white shadow-lg rounded-lg p-6 mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-gray-900">Step 2: AI Analysis</h2>
+        <div className="flex items-center space-x-2">
+          {state.step2Status === 'complete' && (
+            <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-medium">
+              Complete
+            </span>
+          )}
+          {state.step2Status === 'processing' && (
+            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium">
+              Processing...
+            </span>
+          )}
+        </div>
+      </div>
+
+      <button
+        onClick={handleAnalysisProcess}
+        disabled={state.step2Status === 'processing' || !canProceedToAnalysis}
+        className="mb-4 bg-orange-600 text-white py-2 px-4 rounded-md hover:bg-orange-700 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+      >
+        {state.step2Status === 'processing' ? 'Analyzing Documents...' : 'Analyze Documents with AI'}
+      </button>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+          <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
+      {state.step1Status === 'complete' && state.results.some(r => r.lawAnalysis || r.lawAnalysisError) && (
+        <div className="space-y-4">
+          {state.results.map((result, index) => (
+            result.success && (
+              <div key={index} className="border border-gray-200 rounded-lg p-4">
+                <h3 className="font-semibold text-gray-900 mb-2">{result.filename}</h3>
+                
+                {result.lawAnalysis != null && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Law Analysis Results (scrollable):
+                    </label>
+                    <div className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md bg-orange-50 overflow-y-auto">
+                      <pre className="text-sm text-gray-800 whitespace-pre-wrap">
+                        {JSON.stringify(result.lawAnalysis, null, 2)}
+                      </pre>
+                    </div>
+                  </div>
+                )}
+
+                {result.lawAnalysisError && (
+                  <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                    <p className="text-red-600">{result.lawAnalysisError}</p>
+                  </div>
+                )}
+              </div>
+            )
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+</file>
+
+<file path="frontend/src/app/components/PdfUploadSection.tsx">
+'use client'
+
+import { useState } from 'react'
+import { useApp } from './AppContext'
+
+export function PdfUploadSection() {
+  const { 
+    state, 
+    setApiKey, 
+    setFiles, 
+    setResults,
+    clearData,
+    setCurrentStep
+  } = useApp()
+  
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [error, setError] = useState('')
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || [])
+    const pdfFiles = files.filter(file => file.type === 'application/pdf')
+    
+    if (pdfFiles.length !== files.length) {
+      setError('Only PDF files are allowed')
+      return
+    }
+    
+    setSelectedFiles(pdfFiles)
+    setFiles(pdfFiles)
+    setError('')
+    
+    // Initialize results with filenames
+    const initialResults = pdfFiles.map(file => ({
+      filename: file.name,
+      success: false,
+      extractedText: ''
+    }))
+    setResults(initialResults)
+  }
+
+  const handleClear = () => {
+    setSelectedFiles([])
+    clearData()
+    setError('')
+    setCurrentStep(1)
+  }
+
+  return (
+    <div className="bg-white shadow-lg rounded-lg p-6 mb-8">
+      <h2 className="text-xl font-bold text-gray-900 mb-4">Upload PDFs</h2>
+      
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 mb-2">
+            API Key
+          </label>
+          <input
+            type="password"
+            id="apiKey"
+            value={state.apiKey}
+            onChange={(e) => setApiKey(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+            placeholder="Enter your API key..."
+          />
+        </div>
+
+        <div>
+          <label htmlFor="files" className="block text-sm font-medium text-gray-700 mb-2">
+            PDF Files
+          </label>
+          <input
+            type="file"
+            id="files"
+            multiple
+            accept=".pdf"
+            onChange={handleFileChange}
+            className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black"
+          />
+          
+          {selectedFiles.length > 0 && (
+            <div className="mt-4">
+              <p className="text-sm text-gray-600 mb-2">Selected files ({selectedFiles.length}):</p>
+              <div className="max-h-32 overflow-y-auto">
+                <ul className="space-y-1">
+                  {selectedFiles.map((file, index) => (
+                    <li key={index} className="text-sm bg-gray-50 px-3 py-2 rounded">
+                      {file.name} ({Math.round(file.size / 1024)}KB)
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4">
+            <p className="text-red-600">{error}</p>
+          </div>
+        )}
+
+        <div className="flex space-x-4">
+          <button
+            onClick={handleClear}
+            className="bg-gray-300 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-400 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 font-medium"
+          >
+            Clear All
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+</file>
+
+<file path="frontend/src/app/components/RubricEntrySection.tsx">
+'use client'
+
+import { useApp } from './AppContext'
+
+export function RubricEntrySection() {
+  const { 
+    state, 
+    setRubric
+  } = useApp()
+
+  const handleRubricChange = (value: string) => {
+    setRubric(value)
+  }
+
+  const handleClearRubric = () => {
+    setRubric('')
+  }
+
+  const characterCount = state.rubric.length
+
+  return (
+    <div className="bg-white shadow-lg rounded-lg p-6 mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-gray-900">Step 0: Enter Rubric</h2>
+        <div className="flex items-center space-x-2">
+          {state.step0Status === 'complete' && (
+            <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-medium">
+              Complete
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="rubric" className="block text-sm font-medium text-gray-700 mb-2">
+            Rubric / Instructions (Optional)
+          </label>
+          <textarea
+            id="rubric"
+            value={state.rubric}
+            onChange={(e) => handleRubricChange(e.target.value)}
+            className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 text-black resize-none"
+            placeholder="Enter any specific instructions, criteria, or rubric for processing the documents..."
+          />
+          <div className="flex items-center justify-between mt-2">
+            <p className="text-sm text-gray-500">
+              Character count: {characterCount.toLocaleString()}
+            </p>
+            {state.rubric && (
+              <button
+                onClick={handleClearRubric}
+                className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+              >
+                Clear Rubric
+              </button>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-purple-50 border border-purple-200 rounded-md p-4">
+          <p className="text-sm text-purple-700">
+            <strong>Optional:</strong> Add any specific instructions or criteria that should guide the document processing. 
+            This rubric will be used to customize the analysis approach for your documents.
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}
+</file>
+
+<file path="frontend/src/app/globals.css">
+@import "tailwindcss";
+
+:root {
+  --background: #ffffff;
+  --foreground: #171717;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --background: #0a0a0a;
+    --foreground: #ededed;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+</file>
+
+<file path="frontend/.gitignore">
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (can opt-in for committing if needed)
+.env*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+</file>
+
+<file path="frontend/eslint.config.mjs">
+import { dirname } from "path";
+import { fileURLToPath } from "url";
+import { FlatCompat } from "@eslint/eslintrc";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const compat = new FlatCompat({
+  baseDirectory: __dirname,
+});
+
+const eslintConfig = [
+  ...compat.extends("next/core-web-vitals", "next/typescript"),
+];
+
+export default eslintConfig;
+</file>
+
+<file path="frontend/next.config.js">
+/** @type {import('next').NextConfig} */
+const nextConfig = {
+  env: {
+    BACKEND_URL: process.env.BACKEND_URL || 'http://localhost:8000',
+  },
+}
+
+module.exports = nextConfig
+</file>
+
+<file path="frontend/next.config.ts">
+import type { NextConfig } from "next";
+
+const nextConfig: NextConfig = {
+  /* config options here */
+};
+
+export default nextConfig;
+</file>
+
+<file path="frontend/package.json">
+{
+  "name": "frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "next": "15.4.5"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@tailwindcss/postcss": "^4",
+    "tailwindcss": "^4",
+    "eslint": "^9",
+    "eslint-config-next": "15.4.5",
+    "@eslint/eslintrc": "^3"
+  }
+}
+</file>
+
+<file path="frontend/postcss.config.mjs">
+const config = {
+  plugins: ["@tailwindcss/postcss"],
+};
+
+export default config;
+</file>
+
+<file path="frontend/README.md">
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+## Getting Started
+
+First, run the development server:
+
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
+```
+
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+
+## Learn More
+
+To learn more about Next.js, take a look at the following resources:
+
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+</file>
+
+<file path="frontend/tsconfig.json">
+{
+  "compilerOptions": {
+    "target": "ES2017",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "allowJs": true,
+    "skipLibCheck": true,
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "incremental": true,
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "exclude": ["node_modules"]
+}
+</file>
+
+<file path="CLAUDE.md">
+# Claude Instructions for Vote Tracking Project
+
+## Important: Do NOT Start the Web Application
+
+- NEVER run `npm run dev`, `npm start`, or any other commands to start the web application after making edits
+- Let the user run the application themselves when they want to test it
+- Instead of starting the app to verify functionality, create and run tests
+
+## Testing Strategy
+
+- For any new functionality you implement, create appropriate tests
+- Run existing tests to verify changes don't break anything
+- Use tests to validate that your code changes work correctly
+- Prefer unit tests and integration tests over manual testing via the running application
+
+## Commands to Use Instead
+
+- Run tests: Check package.json for test scripts
+- Run linting/type checking: Use available lint and typecheck commands
+- Build the project: Use build commands to verify compilation
+
+This approach ensures faster feedback and more reliable verification of changes without the overhead of starting the full application.
+</file>
+
+<file path="example.json">
+{\"bills\":[{\"bill_name\":\"25-O-1047\",\"council_members\":[]},{\"bill_name\":\"25-O-1029\",\"council_members\":[]},{\"bill_name\":\"25-O-1030\",\"council_members\":[]},{\"bill_name\":\"25-O-1036\",\"council_members\":[{\"member_name\":\"Jason H. Winston\",\"action\":\"sponsored/mover\"}]},{\"bill_name\":\"25-R-3084\",\"council_members\":[{\"member_name\":\"Howard Shook\",\"action\":\"sponsored/mover\"}]},{\"bill_name\":\"25-R-3087\",\"council_members\":[{\"member_name\":\"Eshé Collins\",\"action\":\"sponsored/mover\"}]},{\"bill_name\":\"25-R-3114\",\"council_members\":[]},{\"bill_name\":\"24-C-5009\",\"council_members\":[{\"member_name\":\"Dustin Hillis\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Andrea L. Boone\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Keisha Sean Waites\",\"action\":\"sponsored/mover\"}]},{\"bill_name\":\"24-R-3123\",\"council_members\":[{\"member_name\":\"Liliana Bakhtiari\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Alex Wan\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Jason H. Winston\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Amir Farokhi\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Byron D. Amos\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Jason Dozier\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Howard Shook\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Dustin Hillis\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Andrea L. Boone\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Marci Collier Overstreet\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Michael Julian Bond\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Matt Westmoreland\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Keisha Sean Waites\",\"action\":\"sponsored/mover\"},{\"member_name\":\"Antonio Lewis\",\"action\":\"sponsored/mover\"}]},{\"bill_name\":\"24-O-1094\",\"council_members\":[{\"member_name\":\"Andrea L. Boone\",\"action\":\"sponsored/mover\"}]},{\"bill_name\":\"24-O-1701\",\"council_members\":[]}]}
+</file>
+
+<file path="README.md">
+# PDF Processing with OpenAI
+
+A monorepo containing a FastAPI backend and Next.js frontend for processing PDF files with OpenAI vision models.
+
+## Structure
+
+- `backend/` - FastAPI Python backend
+- `frontend/` - Next.js TypeScript frontend
+
+## Local Development
+
+### Backend
+```bash
+cd backend
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+### Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+## Deployment
+
+- **Frontend**: Deploy to Vercel
+- **Backend**: Deploy to Render
+</file>
+
+<file path="frontend/src/app/components/OcrProcessingSection.tsx">
+'use client'
+
+import { useState } from 'react'
+import { useApp } from './AppContext'
+
+export function OcrProcessingSection() {
+  const { 
+    state, 
+    setResults, 
+    setStepStatus
+  } = useApp()
+  
+  const [error, setError] = useState('')
+
+  const handleStep1Process = async () => {
+    if (!state.apiKey) {
+      setError('Please enter your API key')
+      return
+    }
+    
+    if (state.files.length === 0) {
+      setError('Please select at least one PDF file')
+      return
+    }
+
+    setStepStatus(1, 'processing')
+    setError('')
+    
+    try {
+      const formData = new FormData()
+      state.files.forEach(file => {
+        formData.append('files', file)
+      })
+      formData.append('api_key', state.apiKey)
+
+      const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'
+      const response = await fetch(`${backendUrl}/process-pdfs`, {
+        method: 'POST',
+        body: formData,
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to process PDFs')
+      }
+
+      const data = await response.json()
+      
+      // Update results with text extraction data
+      const updates = data.results.map((result: unknown) => {
+        const typedResult = result as {
+          filename: string
+          success: boolean
+          total_pages?: number
+          extraction_method?: 'direct' | 'ocr'
+          ocr_results?: unknown
+          extracted_text?: string
+          error?: string
+        }
+        return {
+          ...typedResult,
+          totalPages: typedResult.total_pages,
+          extractionMethod: typedResult.extraction_method,
+          ocrResults: typedResult.ocr_results,
+          extractedText: typedResult.extracted_text
+        }
+      })
+      
+      setResults(updates)
+      setStepStatus(1, 'complete')
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      setStepStatus(1, 'error')
+    }
+  }
+
+  const handleTextEdit = (filename: string, field: 'extractedText', value: string) => {
+    const updates = state.results.map(result => {
+      if (result.filename === filename) {
+        return { ...result, [field]: value }
+      }
+      return result
+    })
+    setResults(updates)
+  }
+
+  return (
+    <div className="bg-white shadow-lg rounded-lg p-6 mb-8">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-xl font-bold text-gray-900">Step 1: Text Extraction</h2>
+        <div className="flex items-center space-x-2">
+          {state.step1Status === 'complete' && (
+            <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-medium">
+              Complete
+            </span>
+          )}
+          {state.step1Status === 'processing' && (
+            <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium">
+              Processing...
+            </span>
+          )}
+        </div>
+      </div>
+
+      <button
+        onClick={handleStep1Process}
+        disabled={state.step1Status === 'processing' || !state.apiKey || state.files.length === 0}
+        className="mb-4 bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+      >
+        {state.step1Status === 'processing' ? 'Extracting Text...' : `Extract Text from ${state.files.length} PDF(s)`}
+      </button>
+
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+          <p className="text-red-600">{error}</p>
+        </div>
+      )}
+
+      {state.results.length > 0 && (
+        <div className="space-y-4">
+          {state.results.map((result, index) => (
+            <div key={index} className="border border-gray-200 rounded-lg p-4">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="font-semibold text-gray-900">{result.filename}</h3>
+                {result.success ? (
+                  <div className="flex space-x-2">
+                    <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm">
+                      Success ({result.totalPages} pages)
+                    </span>
+                    {result.extractionMethod && (
+                      <span className={`px-2 py-1 rounded text-sm ${
+                        result.extractionMethod === 'direct' 
+                          ? 'bg-blue-100 text-blue-800' 
+                          : 'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {result.extractionMethod === 'direct' ? 'Direct' : 'OCR'}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <span className="bg-red-100 text-red-800 px-2 py-1 rounded text-sm">
+                    Failed
+                  </span>
+                )}
+              </div>
+              
+              {result.success && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Extracted Text (scrollable/editable):
+                  </label>
+                  <textarea
+                    value={result.extractedText || ''}
+                    onChange={(e) => handleTextEdit(result.filename, 'extractedText', e.target.value)}
+                    className="w-full h-48 px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-black resize-none overflow-y-auto"
+                    placeholder="Extracted text will appear here..."
+                  />
+                </div>
+              )}
+
+              {result.error && (
+                <div className="bg-red-50 border border-red-200 rounded-md p-4 mt-2">
+                  <p className="text-red-600">{result.error}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+</file>
+
+<file path="frontend/src/app/layout.tsx">
+import type { Metadata } from "next";
+import "./globals.css";
+import { AppProvider } from './components/AppContext'
+import { TopNavigation } from './components/TopNavigation'
+
+export const metadata: Metadata = {
+  title: "PDF Vote Tracking System",
+  description: "City council meeting vote tracking and analysis",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className="bg-gray-50">
+        <AppProvider>
+          <div className="min-h-screen flex flex-col bg-gray-50">
+            <TopNavigation />
+            <main className="flex-1">
+              {children}
+            </main>
+          </div>
+        </AppProvider>
+      </body>
+    </html>
+  );
+}
+</file>
+
+<file path="frontend/src/app/pdf-analysis/page.tsx">
+'use client'
+
+import { RubricEntrySection } from '../components/RubricEntrySection'
+import { PdfUploadSection } from '../components/PdfUploadSection'
+import { OcrProcessingSection } from '../components/OcrProcessingSection'
+import { AnalysisSection } from '../components/AnalysisSection'
+
+export default function PdfAnalysisPage() {
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">
+          PDF Vote Analysis System
+        </h1>
+        <p className="text-lg text-gray-600">
+          Upload PDF files and extract text using OCR processing.
+        </p>
+      </div>
+
+      <PdfUploadSection />
+      <RubricEntrySection />
+      <OcrProcessingSection />
+      <AnalysisSection />
+    </div>
+  )
+}
+</file>
+
+<file path="frontend/src/app/components/TopNavigation.tsx">
+'use client'
+
+import Link from 'next/link'
+import { usePathname } from 'next/navigation'
+
+export function TopNavigation() {
+  const pathname = usePathname()
+  
+  return (
+    <div className="h-16 bg-white border-b border-gray-200 flex items-center justify-between px-6">
+      <h1 className="text-xl font-semibold text-gray-800">
+        PDF Vote Tracking System
+      </h1>
+      
+      <nav className="flex space-x-1">
+        <Link 
+          href="/" 
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            pathname === '/' 
+              ? 'bg-blue-100 text-blue-700' 
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+          }`}
+        >
+          Vote Tracking System
+        </Link>
+        <Link 
+          href="/pdf-analysis" 
+          className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            pathname === '/pdf-analysis' 
+              ? 'bg-blue-100 text-blue-700' 
+              : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+          }`}
+        >
+          PDF Analysis
+        </Link>
+      </nav>
+    </div>
+  )
+}
+</file>
+
+<file path="frontend/src/app/page.tsx">
+'use client'
+
+import { useState } from 'react'
+import { useApp } from './components/AppContext'
+import { PdfUploadSection } from './components/PdfUploadSection'
+import { OcrProcessingSection } from './components/OcrProcessingSection'
+
+export default function Home() {
+  const { 
+    state, 
+    setResults, 
+    setStepStatus
+  } = useApp()
+  
+  const [step2Error, setStep2Error] = useState('')
+  const [step3Error, setStep3Error] = useState('')
+
+  const handleStep2Process = async () => {
+    if (!state.apiKey) {
+      setStep2Error('Please enter your API key')
+      return
+    }
+
+    setStepStatus(2, 'processing')
+    setStep2Error('')
+    
+    try {
+      const entries = state.results
+        .filter(result => result.success && result.extractedText)
+        .map(result => ({
+          filename: result.filename,
+          text: result.extractedText || ''
+        }))
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/extract-attendees-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          entries,
+          api_key: state.apiKey
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to extract attendees')
+      }
+
+      const data = await response.json()
+      
+      // Update results with attendee data
+      const updates = state.results.map(result => {
+        const match = data.results.find((r: { filename: string }) => r.filename === result.filename)
+        if (match && match.success) {
+          return { ...result, attendees: match.attendees }
+        } else if (match && !match.success) {
+          return { ...result, attendeesError: match.error }
+        }
+        return result
+      })
+      
+      setResults(updates)
+      setStepStatus(2, 'complete')
+      
+    } catch (err) {
+      setStep2Error(err instanceof Error ? err.message : 'An error occurred')
+      setStepStatus(2, 'error')
+    }
+  }
+
+  const handleStep3Process = async () => {
+    if (!state.apiKey) {
+      setStep3Error('Please enter your API key')
+      return
+    }
+
+    setStepStatus(3, 'processing')
+    setStep3Error('')
+    
+    try {
+      const entries = state.results
+        .filter(result => result.success && result.extractedText)
+        .map(result => ({
+          filename: result.filename,
+          text: result.extractedText || ''
+        }))
+
+      const response = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:8000'}/extract-vote-patterns-batch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          entries,
+          api_key: state.apiKey
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || 'Failed to extract vote patterns')
+      }
+
+      const data = await response.json()
+      
+      // Update results with vote pattern data
+      const updates = state.results.map(result => {
+        const match = data.results.find((r: { filename: string }) => r.filename === result.filename)
+        if (match && match.success) {
+          return { ...result, votePatterns: match.vote_patterns }
+        } else if (match && !match.success) {
+          return { ...result, votePatternsError: match.error }
+        }
+        return result
+      })
+      
+      setResults(updates)
+      setStepStatus(3, 'complete')
+      
+    } catch (err) {
+      setStep3Error(err instanceof Error ? err.message : 'An error occurred')
+      setStepStatus(3, 'error')
+    }
+  }
+
+
+  const canProceedToStep2 = state.step1Status === 'complete' && state.results.some(r => r.success)
+  const canProceedToStep3 = state.step2Status === 'complete' && state.results.some(r => r.attendees)
+
+  return (
+    <div className="max-w-6xl mx-auto p-6">
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">
+          PDF Vote Tracking System
+        </h1>
+        <p className="text-lg text-gray-600">
+          Upload one or multiple PDF files and process them through OCR, attendee extraction, and vote pattern analysis.
+        </p>
+      </div>
+
+      <PdfUploadSection />
+      <OcrProcessingSection />
+
+      {/* Step 2: Attendee Extraction */}
+      <div className="bg-white shadow-lg rounded-lg p-6 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Step 2: Extract Attendees</h2>
+          <div className="flex items-center space-x-2">
+            {state.step2Status === 'complete' && (
+              <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-medium">
+                Complete
+              </span>
+            )}
+            {state.step2Status === 'processing' && (
+              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium">
+                Processing...
+              </span>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={handleStep2Process}
+          disabled={state.step2Status === 'processing' || !canProceedToStep2}
+          className="mb-4 bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+        >
+          {state.step2Status === 'processing' ? 'Extracting Attendees...' : 'Extract Meeting Attendees'}
+        </button>
+
+        {step2Error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <p className="text-red-600">{step2Error}</p>
+          </div>
+        )}
+
+        {state.step1Status === 'complete' && state.results.some(r => r.attendees || r.attendeesError) && (
+          <div className="space-y-4">
+            {state.results.map((result, index) => (
+              result.success && (
+                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-2">{result.filename}</h3>
+                  
+                  {result.attendees != null && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Attendees (scrollable):
+                      </label>
+                      <div className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md bg-blue-50 overflow-y-auto">
+                        <pre className="text-sm text-gray-800 whitespace-pre-wrap">
+                          {JSON.stringify(result.attendees, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+
+                  {result.attendeesError && (
+                    <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                      <p className="text-red-600">{result.attendeesError}</p>
+                    </div>
+                  )}
+                </div>
+              )
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Step 3: Vote Pattern Extraction */}
+      <div className="bg-white shadow-lg rounded-lg p-6 mb-8">
+        <div className="flex items-center justify-between mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Step 3: Extract Vote Patterns</h2>
+          <div className="flex items-center space-x-2">
+            {state.step3Status === 'complete' && (
+              <span className="bg-green-100 text-green-800 px-2 py-1 rounded text-sm font-medium">
+                Complete
+              </span>
+            )}
+            {state.step3Status === 'processing' && (
+              <span className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium">
+                Processing...
+              </span>
+            )}
+          </div>
+        </div>
+
+        <button
+          onClick={handleStep3Process}
+          disabled={state.step3Status === 'processing' || !canProceedToStep3}
+          className="mb-4 bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+        >
+          {state.step3Status === 'processing' ? 'Extracting Vote Patterns...' : 'Extract Vote Patterns'}
+        </button>
+
+        {step3Error && (
+          <div className="bg-red-50 border border-red-200 rounded-md p-4 mb-4">
+            <p className="text-red-600">{step3Error}</p>
+          </div>
+        )}
+
+        {state.step2Status === 'complete' && state.results.some(r => r.votePatterns || r.votePatternsError) && (
+          <div className="space-y-4">
+            {state.results.map((result, index) => (
+              result.success && (
+                <div key={index} className="border border-gray-200 rounded-lg p-4">
+                  <h3 className="font-semibold text-gray-900 mb-2">{result.filename}</h3>
+                  
+                  {result.votePatterns != null && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Vote Patterns (scrollable):
+                      </label>
+                      <div className="w-full h-32 px-3 py-2 border border-gray-300 rounded-md bg-purple-50 overflow-y-auto">
+                        <pre className="text-sm text-gray-800 whitespace-pre-wrap">
+                          {JSON.stringify(result.votePatterns, null, 2)}
+                        </pre>
+                      </div>
+                    </div>
+                  )}
+
+                  {result.votePatternsError && (
+                    <div className="bg-red-50 border border-red-200 rounded-md p-4">
+                      <p className="text-red-600">{result.votePatternsError}</p>
+                    </div>
+                  )}
+                </div>
+              )
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+</file>
+
+<file path="frontend/src/app/components/AppContext.tsx">
+'use client'
+
+import React, { createContext, useContext, useState, useCallback, ReactNode } from 'react'
+
+export interface PdfResult {
+  filename: string
+  success: boolean
+  totalPages?: number
+  extractionMethod?: 'direct' | 'ocr'
+  ocrResults?: {
+    totalPages: number
+    results: Array<{
+      page: number
+      response?: string
+      error?: string
+    }>
+  }
+  extractedText?: string
+  attendees?: unknown
+  votePatterns?: unknown
+  lawAnalysis?: unknown
+  processingTimeMs?: number
+  attendeesError?: string
+  votePatternsError?: string
+  lawAnalysisError?: string
+  error?: string
+}
+
+export interface AppState {
+  apiKey: string
+  files: File[]
+  results: PdfResult[]
+  rubric: string
+  currentStep: number
+  step0Status: 'idle' | 'complete'
+  step1Status: 'idle' | 'processing' | 'complete' | 'error'
+  step2Status: 'idle' | 'processing' | 'complete' | 'error'  
+  step3Status: 'idle' | 'processing' | 'complete' | 'error'
+}
+
+interface AppContextType {
+  state: AppState
+  updateState: (updates: Partial<AppState>) => void
+  setCurrentStep: (step: number) => void
+  setApiKey: (key: string) => void
+  setFiles: (files: File[]) => void
+  setResults: (results: PdfResult[]) => void
+  updateResults: (results: Partial<PdfResult>[]) => void
+  setRubric: (rubric: string) => void
+  setStepStatus: (step: 1 | 2 | 3, status: 'idle' | 'processing' | 'complete' | 'error') => void
+  clearData: () => void
+}
+
+const AppContext = createContext<AppContextType | undefined>(undefined)
+
+const initialState: AppState = {
+  apiKey: '',
+  files: [],
+  results: [],
+  rubric: '',
+  currentStep: 1,
+  step0Status: 'idle',
+  step1Status: 'idle',
+  step2Status: 'idle',
+  step3Status: 'idle'
+}
+
+export function AppProvider({ children }: { children: ReactNode }) {
+  const [state, setState] = useState<AppState>(initialState)
+
+  const updateState = useCallback((updates: Partial<AppState>) => {
+    setState(prev => ({ ...prev, ...updates }))
+  }, [])
+
+  const setCurrentStep = useCallback((step: number) => {
+    setState(prev => {
+      if (prev.currentStep === step) return prev // Prevent unnecessary updates
+      return { ...prev, currentStep: step }
+    })
+  }, [])
+
+  const setApiKey = useCallback((key: string) => {
+    setState(prev => ({ ...prev, apiKey: key }))
+  }, [])
+
+  const setFiles = useCallback((files: File[]) => {
+    setState(prev => ({ ...prev, files }))
+  }, [])
+
+  const setResults = useCallback((results: PdfResult[]) => {
+    setState(prev => ({ ...prev, results }))
+  }, [])
+
+  const setRubric = useCallback((rubric: string) => {
+    setState(prev => ({ 
+      ...prev, 
+      rubric,
+      step0Status: rubric.trim() ? 'complete' : 'idle'
+    }))
+  }, [])
+
+  const updateResults = useCallback((updates: Partial<PdfResult>[]) => {
+    setState(prev => {
+      const newResults = [...prev.results]
+      updates.forEach((update, index) => {
+        if (index < newResults.length) {
+          newResults[index] = { ...newResults[index], ...update }
+        }
+      })
+      return { ...prev, results: newResults }
+    })
+  }, [])
+
+  const setStepStatus = useCallback((step: 1 | 2 | 3, status: 'idle' | 'processing' | 'complete' | 'error') => {
+    setState(prev => ({
+      ...prev,
+      [`step${step}Status`]: status
+    }))
+  }, [])
+
+  const clearData = useCallback(() => {
+    setState(prev => ({
+      ...prev,
+      files: [],
+      results: [],
+      rubric: '',
+      step0Status: 'idle',
+      step1Status: 'idle',
+      step2Status: 'idle',
+      step3Status: 'idle'
+    }))
+  }, [])
+
+  const value: AppContextType = {
+    state,
+    updateState,
+    setCurrentStep,
+    setApiKey,
+    setFiles,
+    setResults,
+    updateResults,
+    setRubric,
+    setStepStatus,
+    clearData
+  }
+
+  return (
+    <AppContext.Provider value={value}>
+      {children}
+    </AppContext.Provider>
+  )
+}
+
+export function useApp(): AppContextType {
+  const context = useContext(AppContext)
+  if (!context) {
+    throw new Error('useApp must be used within an AppProvider')
+  }
+  return context
+}
+</file>
+
+<file path="backend/main.py">
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+import os
+import tempfile
+import base64
+from io import BytesIO
+from PIL import Image
+from pdf2image import convert_from_path
+import PyPDF2
+from openai import OpenAI
+from typing import List
+import json
+import asyncio
+import time
+import math
+
+app = FastAPI(title="Vote Tracking API")
+origins = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000", 
+        "http://localhost:3001",
+        "http://127.0.0.1:3001",
+    ]
+frontend_url = os.getenv("FRONTEND_URL")
+if frontend_url:
+    origins.append(frontend_url)
+# Configure CORS for frontend - more flexible for development
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Pydantic models for request bodies
+class TextAnalysisRequest(BaseModel):
+    text: str
+    api_key: str
+
+class MultiTextEntry(BaseModel):
+    filename: str
+    text: str
+
+class MultiTextAnalysisRequest(BaseModel):
+    entries: List[MultiTextEntry]
+    api_key: str
+
+class MultiTextAnalysisWithRubricRequest(BaseModel):
+    entries: List[MultiTextEntry]
+    rubric: str
+    api_key: str
+
+def create_text_windows(text: str, window_size: int = 20000, shift_size: int = 10000, threshold: int = 25000) -> List[str]:
+    """
+    Split text into overlapping windows if it exceeds the threshold.
+    
+    Args:
+        text: Input text to split
+        window_size: Size of each window in characters (default: 20000)
+        shift_size: How much to shift between windows in characters (default: 10000)
+        threshold: Minimum text length to trigger windowing (default: 25000)
+    
+    Returns:
+        List of text chunks. If text <= threshold, returns [text].
+        Otherwise returns overlapping windows.
+    """
+    text_length = len(text)
+    
+    # If text is small enough, return as-is
+    if text_length <= threshold:
+        return [text]
+    
+    windows = []
+    start_pos = 0
+    
+    while start_pos < text_length:
+        # Calculate end position for this window
+        end_pos = min(start_pos + window_size, text_length)
+        
+        # Extract the window
+        window = text[start_pos:end_pos]
+        windows.append(window)
+        
+        # If this window reaches the end of text, we're done
+        if end_pos >= text_length:
+            break
+            
+        # Move to next window start position
+        start_pos += shift_size
+    
+    return windows
+
+def merge_vote_pattern_results(results: List[dict]) -> dict:
+    """
+    Merge vote pattern results from multiple text windows.
+    
+    Args:
+        results: List of vote pattern result dictionaries, each containing a "bills" array
+        
+    Returns:
+        Merged result dictionary with combined bills and resolved conflicts
+    """
+    if not results:
+        return {"bills": []}
+    
+    # Define action priority (higher number = higher priority)
+    action_priority = {
+        "abstained": 1,
+        "voted_against": 2,
+        "voted_for": 3,
+        "co_sponsored/seconder": 4,
+        "sponsored/mover": 5
+    }
+    
+    # Dictionary to store merged bills by bill_name
+    merged_bills = {}
+    
+    for result in results:
+        # Handle case where result might be a string (JSON) or already parsed dict
+        if isinstance(result, str):
+            try:
+                result = json.loads(result)
+            except:
+                continue
+        
+        # Skip if result doesn't have bills
+        if not isinstance(result, dict) or "bills" not in result:
+            continue
+            
+        for bill in result["bills"]:
+            bill_name = bill.get("bill_name", "")
+            if not bill_name:
+                continue
+                
+            # Initialize bill if not seen before
+            if bill_name not in merged_bills:
+                merged_bills[bill_name] = {
+                    "bill_name": bill_name,
+                    "council_members": {}
+                }
+            
+            # Merge council members for this bill
+            for member in bill.get("council_members", []):
+                member_name = member.get("member_name", "")
+                action = member.get("action", "")
+                
+                if not member_name or not action:
+                    continue
+                
+                # If this member hasn't been seen for this bill, add them
+                if member_name not in merged_bills[bill_name]["council_members"]:
+                    merged_bills[bill_name]["council_members"][member_name] = action
+                else:
+                    # Resolve conflict by choosing higher priority action
+                    existing_action = merged_bills[bill_name]["council_members"][member_name]
+                    existing_priority = action_priority.get(existing_action, 0)
+                    new_priority = action_priority.get(action, 0)
+                    
+                    if new_priority > existing_priority:
+                        merged_bills[bill_name]["council_members"][member_name] = action
+    
+    # Convert merged bills back to the expected format
+    final_bills = []
+    for bill_name, bill_data in merged_bills.items():
+        council_members = [
+            {
+                "member_name": member_name,
+                "action": action
+            }
+            for member_name, action in bill_data["council_members"].items()
+        ]
+        
+        final_bills.append({
+            "bill_name": bill_name,
+            "council_members": council_members
+        })
+    
+    return {"bills": final_bills}
+
+def extract_text_directly_from_pdf(pdf_path: str) -> tuple[str, int]:
+    """
+    Extract text directly from PDF using PyPDF2.
+    
+    Args:
+        pdf_path: Path to the PDF file
+        
+    Returns:
+        Tuple of (extracted_text, page_count)
+    """
+    try:
+        extracted_text = ""
+        page_count = 0
+        
+        with open(pdf_path, 'rb') as file:
+            pdf_reader = PyPDF2.PdfReader(file)
+            page_count = len(pdf_reader.pages)
+            
+            for page_num, page in enumerate(pdf_reader.pages):
+                try:
+                    page_text = page.extract_text()
+                    if page_text:
+                        extracted_text += f"\n\n--- Page {page_num + 1} ---\n"
+                        extracted_text += page_text
+                except Exception as e:
+                    print(f"Failed to extract text from page {page_num + 1}: {str(e)}")
+                    # Continue to next page if one page fails
+                    continue
+        
+        return extracted_text.strip(), page_count
+        
+    except Exception as e:
+        print(f"Failed to extract text from PDF {pdf_path}: {str(e)}")
+        return "", 0
+
+def image_to_base64(image: Image.Image) -> str:
+    """Convert PIL Image to base64 string"""
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode()
+    return f"data:image/png;base64,{img_str}"
+
+async def process_page_async(client: OpenAI, image: Image.Image, page_num: int, semaphore: asyncio.Semaphore) -> dict:
+    """Process a single page asynchronously with semaphore for concurrency control"""
+    async with semaphore:
+        try:
+            # Convert image to base64
+            image_base64 = image_to_base64(image)
+            
+            print(f"Making LLM request for page {page_num + 1}")
+            
+            # Call OpenAI API in a thread pool to avoid blocking
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(
+                None,
+                lambda: client.responses.create(
+                    model="gpt-4.1",
+                    input=[
+                        {
+                            "role": "system",
+                            "content": [
+                                {
+                                    "type": "input_text",
+                                    "text": "Output all of the text you see in the image"
+                                }
+                            ]
+                        },
+                        {
+                            "role": "user",
+                            "content": [
+                                {
+                                    "type": "input_image",
+                                    "image_url": image_base64,
+                                },
+                            ],
+                        }
+                    ],
+                    text={
+                        "format": {
+                            "type": "json_schema",
+                            "name": "page_to_text",
+                            "strict": True,
+                            "schema": {
+                                "type": "object",
+                                "properties": {
+                                    "text": {
+                                        "type": "string",
+                                        "description": "Write down all of the text you see in the image.",
+                                        "minLength": 1
+                                    }
+                                },
+                                "required": [
+                                    "text"
+                                ],
+                                "additionalProperties": False
+                            }
+                        }
+                    },
+                    reasoning={},
+                    tools=[],
+                    temperature=1,
+                    max_output_tokens=2048,
+                    top_p=1,
+                    store=True
+                )
+            )
+            
+            print(f"Completed LLM request for page {page_num + 1}")
+            
+            return {
+                "page": page_num + 1,
+                "response": response.output_text
+            }
+            
+        except Exception as e:
+            print(f"Failed LLM request for page {page_num + 1}: {str(e)}")
+            return {
+                "page": page_num + 1,
+                "error": f"Failed to process page {page_num + 1}: {str(e)}"
+            }
+
+async def extract_attendees_async(client: OpenAI, text: str) -> dict:
+    """Extract attendees asynchronously"""
+    try:
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: client.responses.create(
+                model="gpt-5",
+                input=[
+                    {
+                        "role": "system",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": "Based on the text provided, return the names of all of the city council members who attended the meeting"
+                            }
+                        ]
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": text
+                            }
+                        ]
+                    }
+                ],
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "council_meeting_attendance",
+                        "strict": True,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "attending_members": {
+                                    "type": "array",
+                                    "description": "A list of city council members who attended the meeting, as found in the notes.",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "name": {
+                                                "type": "string",
+                                                "description": "Full name of the city council member."
+                                            }
+                                        },
+                                        "required": [
+                                            "name"
+                                        ],
+                                        "additionalProperties": False
+                                    }
+                                }
+                            },
+                            "required": [
+                                "attending_members"
+                            ],
+                            "additionalProperties": False
+                        }
+                    }
+                },
+                reasoning={
+                    "effort": "minimal"
+                },
+                tools=[],
+                temperature=1,
+                max_output_tokens=2048,
+                top_p=1,
+                store=True
+            )
+        )
+        return response.output_text
+    except Exception as e:
+        raise e
+
+async def extract_vote_patterns_async(client: OpenAI, text: str) -> dict:
+    """Extract vote patterns asynchronously"""
+    try:
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: client.responses.create(
+                model="o3",
+                input=[
+                    {
+                        "role": "developer",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": "Given the text and the list of city council members, output whether they sponsored, co-sponsored, voted for, or voted against the bill "
+                            }
+                        ]
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": text
+                            }
+                        ]
+                    }
+                ],
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "city_council_bill_unique_action",
+                        "strict": True,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "bills": {
+                                    "type": "array",
+                                    "description": "List of bills discussed in the text.",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "bill_name": {
+                                                "type": "string",
+                                                "description": "Name or identifier of the bill."
+                                            },
+                                            "council_members": {
+                                                "type": "array",
+                                                "description": "List of all city council members and their mutually exclusive action on this bill.",
+                                                "items": {
+                                                    "type": "object",
+                                                    "properties": {
+                                                        "member_name": {
+                                                            "type": "string",
+                                                            "description": "Full name of the city council member."
+                                                        },
+                                                        "action": {
+                                                            "type": "string",
+                                                            "description": "The mutually exclusive action taken by the member on this bill.",
+                                                            "enum": [
+                                                                "sponsored/mover",
+                                                                "co_sponsored/seconder",
+                                                                "voted_for",
+                                                                "voted_against",
+                                                                "abstained"
+                                                            ]
+                                                        }
+                                                    },
+                                                    "required": [
+                                                        "member_name",
+                                                        "action"
+                                                    ],
+                                                    "additionalProperties": False
+                                                }
+                                            }
+                                        },
+                                        "required": [
+                                            "bill_name",
+                                            "council_members"
+                                        ],
+                                        "additionalProperties": False
+                                    }
+                                }
+                            },
+                            "required": [
+                                "bills"
+                            ],
+                            "additionalProperties": False
+                        }
+                    }
+                },
+                reasoning={
+                    "effort": "high"
+                },
+                tools=[],
+                store=True
+            )
+        )
+        return response.output_text
+    except Exception as e:
+        raise e
+
+async def analyze_laws_async(client: OpenAI, text: str, rubric: str) -> dict:
+    """Analyze laws based on rubric asynchronously"""
+    try:
+        # Combine rubric and text as specified in the requirements
+        combined_content = f"[rubric here]\n{rubric}\n[ocr text here]\n{text}"
+        
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(
+            None,
+            lambda: client.responses.create(
+                model="gpt-5",
+                input=[
+                    {
+                        "role": "developer",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": "Based on the following rubric and text, give a score for each law and provide an explanation for the score"
+                            }
+                        ]
+                    },
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "input_text",
+                                "text": combined_content
+                            }
+                        ]
+                    }
+                ],
+                text={
+                    "format": {
+                        "type": "json_schema",
+                        "name": "law_rubric_scoring",
+                        "strict": True,
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "laws": {
+                                    "type": "array",
+                                    "description": "A list of all laws scored per the context-specific rubric.",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "law_name": {
+                                                "type": "string",
+                                                "description": "The short name or official title of the law."
+                                            },
+                                            "description": {
+                                                "type": "string",
+                                                "description": "A summary or plain-language description of the law."
+                                            },
+                                            "score": {
+                                                "type": "number",
+                                                "description": "The numeric score for this law according to the rubric.",
+                                                "minimum": 0
+                                            },
+                                            "explanation": {
+                                                "type": "string",
+                                                "description": "Explanation (with reasoning) for why this law received its score."
+                                            }
+                                        },
+                                        "required": [
+                                            "law_name",
+                                            "description",
+                                            "score",
+                                            "explanation"
+                                        ],
+                                        "additionalProperties": False
+                                    }
+                                }
+                            },
+                            "required": [
+                                "laws"
+                            ],
+                            "additionalProperties": False
+                        }
+                    },
+                    "verbosity": "medium"
+                },
+                reasoning={
+                    "effort": "high"
+                },
+                tools=[],
+                store=True,
+                include=[
+                    "reasoning.encrypted_content",
+                    "web_search_call.action.sources"
+                ]
+            )
+        )
+        return response.output_text
+    except Exception as e:
+        raise e
+
+async def process_single_pdf_text_extraction(
+    client: OpenAI, 
+    file_content: bytes, 
+    filename: str,
+    semaphore: asyncio.Semaphore
+) -> dict:
+    """Process single PDF with hybrid text extraction: direct extraction first, OCR fallback"""
+    
+    async with semaphore:
+        start_time = time.time()
+        temp_pdf_path = None
+        
+        try:
+            # Save file content temporarily
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as temp_file:
+                temp_file.write(file_content)
+                temp_pdf_path = temp_file.name
+            
+            # Step 1: Try direct text extraction first
+            print(f"Attempting direct text extraction for {filename}")
+            extracted_text, page_count = extract_text_directly_from_pdf(temp_pdf_path)
+            
+            # Check if direct extraction was successful (threshold: 100 characters minimum)
+            if extracted_text and len(extracted_text.strip()) >= 100:
+                print(f"Direct text extraction successful for {filename}: {len(extracted_text)} characters from {page_count} pages")
+                
+                # Clean up temp file
+                if temp_pdf_path:
+                    os.unlink(temp_pdf_path)
+                
+                processing_time = int((time.time() - start_time) * 1000)
+                
+                return {
+                    "filename": filename,
+                    "success": True,
+                    "total_pages": page_count,
+                    "extraction_method": "direct",
+                    "extracted_text": extracted_text.strip(),
+                    "processing_time_ms": processing_time
+                }
+            
+            # Step 2: Fallback to OCR if direct extraction failed or yielded minimal text
+            print(f"Direct extraction insufficient for {filename} ({len(extracted_text)} chars), falling back to OCR")
+            
+            # Convert PDF pages to images for OCR
+            try:
+                images = convert_from_path(temp_pdf_path)
+            except Exception as e:
+                if temp_pdf_path:
+                    os.unlink(temp_pdf_path)
+                return {
+                    "filename": filename,
+                    "success": False,
+                    "error": f"Failed to convert PDF for OCR: {str(e)}",
+                    "processing_time_ms": int((time.time() - start_time) * 1000)
+                }
+            
+            # OCR Processing in parallel
+            print(f"Starting OCR fallback for {filename} with {len(images)} pages")
+            page_semaphore = asyncio.Semaphore(20)  # Max 20 pages in parallel
+            ocr_tasks = [
+                process_page_async(client, image, i, page_semaphore)
+                for i, image in enumerate(images)
+            ]
+            ocr_results = await asyncio.gather(*ocr_tasks)
+            
+            # Extract combined text from OCR results
+            ocr_text = ""
+            for result in ocr_results:
+                if result.get("response") and not result.get("error"):
+                    try:
+                        parsed = json.loads(result["response"])
+                        ocr_text += parsed.get("text", result["response"]) + "\n\n"
+                    except:
+                        ocr_text += str(result["response"]) + "\n\n"
+            
+            # Clean up temp file
+            if temp_pdf_path:
+                os.unlink(temp_pdf_path)
+            
+            processing_time = int((time.time() - start_time) * 1000)
+            print(f"Completed OCR fallback for {filename} in {processing_time}ms")
+            
+            return {
+                "filename": filename,
+                "success": True,
+                "total_pages": len(images),
+                "extraction_method": "ocr",
+                "ocr_results": {
+                    "total_pages": len(images),
+                    "results": ocr_results
+                },
+                "extracted_text": ocr_text.strip(),
+                "processing_time_ms": processing_time
+            }
+            
+        except Exception as e:
+            # Clean up temp file if it exists
+            if temp_pdf_path:
+                try:
+                    os.unlink(temp_pdf_path)
+                except:
+                    pass
+            
+            return {
+                "filename": filename,
+                "success": False,
+                "error": f"Processing failed: {str(e)}",
+                "processing_time_ms": int((time.time() - start_time) * 1000)
+            }
+
+@app.post("/process-pdfs")
+async def process_pdfs(
+    files: List[UploadFile] = File(...),
+    api_key: str = Form(...)
+):
+    """Process one or multiple PDF files with hybrid text extraction (step 1)"""
+    
+    if not api_key:
+        raise HTTPException(status_code=400, detail="OpenAI API key is required")
+    
+    if not files:
+        raise HTTPException(status_code=400, detail="At least one PDF file is required")
+    
+    # Validate all files are PDFs
+    for file in files:
+        if not file.filename.endswith('.pdf'):
+            raise HTTPException(status_code=400, detail=f"All files must be PDFs. Invalid file: {file.filename}")
+    
+    try:
+        # Initialize OpenAI client with provided API key
+        client = OpenAI(api_key=api_key)
+        
+        start_time = time.time()
+        
+        print(f"Starting text extraction of {len(files)} PDF file(s)")
+        
+        # Read all file contents first
+        file_contents = []
+        for file in files:
+            content = await file.read()
+            file_contents.append((content, file.filename))
+        
+        # Process all PDFs in parallel with higher concurrency since direct extraction doesn't hit API limits
+        semaphore = asyncio.Semaphore(20)  # Increased from 5 to 20 since direct extraction is much faster
+        tasks = [
+            process_single_pdf_text_extraction(client, content, filename, semaphore)
+            for content, filename in file_contents
+        ]
+        
+        # Execute all tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Handle any exceptions that occurred
+        processed_results = []
+        for result in results:
+            if isinstance(result, Exception):
+                processed_results.append({
+                    "filename": "unknown",
+                    "success": False,
+                    "error": f"Processing failed: {str(result)}",
+                    "processing_time_ms": 0
+                })
+            else:
+                processed_results.append(result)
+        
+        total_processing_time = int((time.time() - start_time) * 1000)
+        
+        print(f"Completed text extraction of all {len(files)} file(s) in {total_processing_time}ms")
+        
+        return JSONResponse(content={
+            "success": True,
+            "total_files": len(files),
+            "processing_time_ms": total_processing_time,
+            "results": processed_results
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Text extraction failed: {str(e)}")
+
+@app.post("/extract-attendees-batch")
+async def extract_attendees_batch(request: MultiTextAnalysisRequest):
+    """Extract meeting attendees for one or multiple text entries"""
+    
+    if not request.api_key:
+        raise HTTPException(status_code=400, detail="API key is required")
+    
+    if not request.entries:
+        raise HTTPException(status_code=400, detail="At least one text entry is required")
+    
+    try:
+        # Initialize OpenAI client with provided API key
+        client = OpenAI(api_key=request.api_key)
+        
+        start_time = time.time()
+        
+        print(f"Starting attendee extraction for {len(request.entries)} text entries")
+        
+        # Process all entries in parallel
+        tasks = [
+            extract_attendees_async(client, entry.text)
+            for entry in request.entries
+        ]
+        
+        # Execute all tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Handle any exceptions that occurred
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append({
+                    "filename": request.entries[i].filename,
+                    "success": False,
+                    "error": f"Attendee extraction failed: {str(result)}"
+                })
+            else:
+                processed_results.append({
+                    "filename": request.entries[i].filename,
+                    "success": True,
+                    "attendees": result
+                })
+        
+        total_processing_time = int((time.time() - start_time) * 1000)
+        
+        print(f"Completed attendee extraction for all {len(request.entries)} entries in {total_processing_time}ms")
+        
+        return JSONResponse(content={
+            "success": True,
+            "total_entries": len(request.entries),
+            "processing_time_ms": total_processing_time,
+            "results": processed_results
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Attendee extraction failed: {str(e)}")
+
+@app.post("/extract-vote-patterns-batch")
+async def extract_vote_patterns_batch(request: MultiTextAnalysisRequest):
+    """Extract vote patterns for one or multiple text entries"""
+    
+    if not request.api_key:
+        raise HTTPException(status_code=400, detail="API key is required")
+    
+    if not request.entries:
+        raise HTTPException(status_code=400, detail="At least one text entry is required")
+    
+    try:
+        # Initialize OpenAI client with provided API key
+        client = OpenAI(api_key=request.api_key)
+        
+        start_time = time.time()
+        
+        print(f"Starting vote pattern extraction for {len(request.entries)} text entries")
+        
+        # Process each entry (some may require windowing)
+        processed_results = []
+        
+        for entry in request.entries:
+            try:
+                text_length = len(entry.text)
+                print(f"Processing {entry.filename} - {text_length} characters")
+                
+                # Check if text requires windowed processing
+                if text_length > 25000:
+                    print(f"  Using windowed processing for {entry.filename}")
+                    
+                    # Create windows
+                    windows = create_text_windows(entry.text)
+                    print(f"  Created {len(windows)} windows for {entry.filename}")
+                    
+                    # Process each window in parallel
+                    window_tasks = [
+                        extract_vote_patterns_async(client, window_text)
+                        for window_text in windows
+                    ]
+                    
+                    # Execute window tasks
+                    window_results = await asyncio.gather(*window_tasks, return_exceptions=True)
+                    
+                    # Filter out exceptions and extract successful results
+                    successful_results = []
+                    for j, window_result in enumerate(window_results):
+                        if isinstance(window_result, Exception):
+                            print(f"  Window {j+1} failed for {entry.filename}: {str(window_result)}")
+                        else:
+                            successful_results.append(window_result)
+                    
+                    if not successful_results:
+                        processed_results.append({
+                            "filename": entry.filename,
+                            "success": False,
+                            "error": "All windows failed during processing",
+                            "windowed_processing": True,
+                            "window_count": len(windows),
+                            "original_text_length": text_length
+                        })
+                    else:
+                        # Merge results from all windows
+                        merged_result = merge_vote_pattern_results(successful_results)
+                        
+                        processed_results.append({
+                            "filename": entry.filename,
+                            "success": True,
+                            "vote_patterns": merged_result,
+                            "windowed_processing": True,
+                            "window_count": len(windows),
+                            "original_text_length": text_length,
+                            "successful_windows": len(successful_results)
+                        })
+                        
+                        print(f"  Completed windowed processing for {entry.filename}")
+                
+                else:
+                    print(f"  Using standard processing for {entry.filename}")
+                    
+                    # Standard processing for smaller texts
+                    result = await extract_vote_patterns_async(client, entry.text)
+                    
+                    processed_results.append({
+                        "filename": entry.filename,
+                        "success": True,
+                        "vote_patterns": result,
+                        "windowed_processing": False,
+                        "original_text_length": text_length
+                    })
+                    
+                    print(f"  Completed standard processing for {entry.filename}")
+                    
+            except Exception as e:
+                processed_results.append({
+                    "filename": entry.filename,
+                    "success": False,
+                    "error": f"Vote pattern extraction failed: {str(e)}",
+                    "windowed_processing": text_length > 25000 if 'text_length' in locals() else False,
+                    "original_text_length": text_length if 'text_length' in locals() else 0
+                })
+        
+        total_processing_time = int((time.time() - start_time) * 1000)
+        
+        print(f"Completed vote pattern extraction for all {len(request.entries)} entries in {total_processing_time}ms")
+        
+        return JSONResponse(content={
+            "success": True,
+            "total_entries": len(request.entries),
+            "processing_time_ms": total_processing_time,
+            "results": processed_results
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Vote pattern extraction failed: {str(e)}")
+
+@app.post("/analyze-laws-batch")
+async def analyze_laws_batch(request: MultiTextAnalysisWithRubricRequest):
+    """Analyze laws based on rubric for one or multiple text entries"""
+    
+    if not request.api_key:
+        raise HTTPException(status_code=400, detail="API key is required")
+    
+    if not request.entries:
+        raise HTTPException(status_code=400, detail="At least one text entry is required")
+    
+    if not request.rubric.strip():
+        raise HTTPException(status_code=400, detail="Rubric is required")
+    
+    try:
+        # Initialize OpenAI client with provided API key
+        client = OpenAI(api_key=request.api_key)
+        
+        start_time = time.time()
+        
+        print(f"Starting law analysis for {len(request.entries)} text entries")
+        
+        # Process all entries in parallel
+        tasks = [
+            analyze_laws_async(client, entry.text, request.rubric)
+            for entry in request.entries
+        ]
+        
+        # Execute all tasks in parallel
+        results = await asyncio.gather(*tasks, return_exceptions=True)
+        
+        # Handle any exceptions that occurred
+        processed_results = []
+        for i, result in enumerate(results):
+            if isinstance(result, Exception):
+                processed_results.append({
+                    "filename": request.entries[i].filename,
+                    "success": False,
+                    "error": f"Law analysis failed: {str(result)}"
+                })
+            else:
+                processed_results.append({
+                    "filename": request.entries[i].filename,
+                    "success": True,
+                    "law_analysis": result
+                })
+        
+        total_processing_time = int((time.time() - start_time) * 1000)
+        
+        print(f"Completed law analysis for all {len(request.entries)} entries in {total_processing_time}ms")
+        
+        return JSONResponse(content={
+            "success": True,
+            "total_entries": len(request.entries),
+            "processing_time_ms": total_processing_time,
+            "results": processed_results
+        })
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Law analysis failed: {str(e)}")
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint"""
+    return {"status": "healthy"}
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+</file>
+
+</files>

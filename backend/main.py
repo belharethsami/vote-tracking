@@ -531,9 +531,14 @@ async def analyze_laws_async(client: OpenAI, text: str, rubric: str) -> dict:
                                                 "type": "string",
                                                 "description": "A summary or plain-language description of the law."
                                             },
-                                            "score": {
+                                            "score for": {
                                                 "type": "number",
-                                                "description": "The numeric score for this law according to the rubric.",
+                                                "description": "The numeric score for voting for this law according to the rubric.",
+                                                "minimum": 0
+                                            },
+                                            "score against": {
+                                                "type": "number",
+                                                "description": "The numeric score for voting against this law according to the rubric.",
                                                 "minimum": 0
                                             },
                                             "explanation": {
@@ -544,7 +549,8 @@ async def analyze_laws_async(client: OpenAI, text: str, rubric: str) -> dict:
                                         "required": [
                                             "law_name",
                                             "description",
-                                            "score",
+                                            "score for",
+                                            "score against",
                                             "explanation"
                                         ],
                                         "additionalProperties": False
